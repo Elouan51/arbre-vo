@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arbre de préparation VO</title>
+<meta name="description" content="Suivi de préparation des véhicules d'occasion · La Solution Automobile, Reims · Tinqueux">
+<meta name="theme-color" content="#08090C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arbre VO">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>[hidden]{display:none!important} img{max-width:100%} :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<style>
+.login { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(8, 9, 12, .96); }
+.login[hidden] { display: none !important; }
+.login-card { width: min(420px, 100%); padding: 28px 24px; border-radius: 18px; border: 1px solid #2A2E39; background: #12141A; color: #F2F3F6; display: flex; flex-direction: column; gap: 14px; text-align: center; font-family: 'DM Sans', system-ui, sans-serif; }
+.login-logo { width: 220px; height: auto; margin: 0 auto 6px; }
+.login-card h2 { margin: 0; font-family: 'Poppins', system-ui, sans-serif; font-size: 22px; }
+.login-card p { margin: 0; color: #A3A9B8; font-size: 15px; line-height: 1.45; }
+#login-btn { min-height: 52px; border: 0; border-radius: 12px; background: #2F6E9C; color: #FFFFFF; font: 700 17px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+#login-btn:hover { filter: brightness(1.1); }
+.login-err { color: #F6C4C0 !important; font-weight: 600; min-height: 1em; }
+</style>
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<div id="login" class="login" role="dialog" aria-modal="true" aria-labelledby="login-t">
+  <div class="login-card">
+    <img src="lsa.png" alt="La Solution Automobile" width="640" height="158" class="login-logo">
+    <h2 id="login-t">Arbre de préparation VO</h2>
+    <p id="login-txt">Connecte-toi avec ton compte Google pour accéder au tableau de suivi, à ton agenda et aux photos.</p>
+    <button type="button" id="login-btn">Se connecter avec Google</button>
+    <p id="login-err" class="login-err" role="alert"></p>
+  </div>
+</div>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+/* Concept : panneau d'atelier sur fond noir aux couleurs de La Solution Automobile. En haut, la vue d'ensemble du stock (cartes par véhicule, filtrables par personne) ; dessous, une question à la fois à gauche et toutes les étapes à droite. Violet = Élouan, rouge = secrétaire, jaune = patron. Tout s'écrit dans l'onglet STOCK VO du Google Sheet. */
+:root {
+  --bg: #08090C;
+  --surface: #12141A;
+  --surface-2: #1A1D25;
+  --fg: #F2F3F6;
+  --muted: #A3A9B8;
+  --line: #2A2E39;
+  --navy: #122F63;
+  --brand-blue: #4D8AB1;
+  --brand-blue-hi: #7DB3D8;
+  --orange: #E2784A;
+  --violet: #7A47C2;
+  --violet-tint: #211A35;
+  --violet-fg: #DCCBF7;
+  --red: #CF3A3A;
+  --red-tint: #321B1C;
+  --red-fg: #F6C4C0;
+  --amber: #F2B705;
+  --amber-tint: #2D260B;
+  --amber-fg: #F5DE8A;
+  --alert: #E5484D;
+  --late: #F08A3C;
+  --yes: #2F6E9C;
+  --ok-fg: #8CC4E6;
+  --focus: #7DB3D8;
+  --font-display: 'Poppins', 'Avenir Next', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+a { color: var(--brand-blue-hi); }
+.wrap { max-width: 1040px; margin: 0 auto; }
+.brandbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px solid var(--line); }
+.brandbar img { display: block; height: auto; max-width: 100%; }
+.logo-lsa { width: 200px; }
+.logo-vpn { width: 140px; }
+.brandbar .sep { width: 1px; height: 34px; background: var(--line); }
+@media (max-width: 520px) { .brandbar .sep { display: none; } .logo-lsa { width: 180px; } .logo-vpn { width: 126px; } }
+.brandbar .place { margin-left: auto; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.eyebrow { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--brand-blue-hi); }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(32px, 6.5vw, 50px); line-height: 1.08; letter-spacing: -.01em; text-wrap: balance; }
+.lead { margin: 10px 0 0; max-width: 62ch; color: var(--muted); text-wrap: pretty; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 6px; font-size: 14px; font-weight: 600; color: #fff; }
+.chip.v { background: var(--violet); }
+.chip.r { background: var(--red); }
+.chip.p { background: var(--amber); color: #1B1A22; }
+.vehicle { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-top: 20px; }
+.field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 260px; min-width: 0; }
+.field label { font-size: 14px; font-weight: 600; color: var(--muted); }
+select, input[type="text"], input[type="date"], textarea { min-height: 48px; padding: 0 14px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); font: inherit; width: 100%; }
+textarea { min-height: 84px; padding: 10px 14px; resize: vertical; }
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .55; }
+.ghost { min-height: 48px; padding: 0 16px; border: 2px solid var(--line); border-radius: 10px; background: transparent; color: var(--fg); font-weight: 600; }
+.ghost:hover:not(:disabled) { border-color: var(--fg); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.add { margin-top: 14px; }
+.add > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px; border-radius: 12px; background: var(--orange); color: #1B1A22; font-size: 17px; font-weight: 700; }
+.add > summary::-webkit-details-marker { display: none; }
+.add > summary .plus { font-size: 24px; line-height: 1; font-weight: 700; }
+.add > summary:hover { filter: brightness(1.08); }
+.add[open] > summary { background: transparent; color: var(--orange); border: 2px solid var(--orange); }
+.add-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.add-form .full { grid-column: 1 / -1; }
+.add-form .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.add-form .req { color: var(--orange); }
+.sync { margin: 12px 0 0; min-height: 26px; font-size: 15px; font-weight: 600; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.sync.ok { color: var(--ok-fg); }
+.sync.err { color: var(--red-fg); }
+.sync button { min-height: 36px; padding: 0 12px; border-radius: 8px; border: 2px solid currentColor; background: transparent; color: inherit; font-weight: 700; }
+
+.o-v { --c: var(--violet); --ct: var(--violet-tint); --cf: var(--violet-fg); --on: #FFFFFF; }
+.o-r { --c: var(--red); --ct: var(--red-tint); --cf: var(--red-fg); --on: #FFFFFF; }
+.o-p { --c: var(--amber); --ct: var(--amber-tint); --cf: var(--amber-fg); --on: #1B1A22; }
+
+/* ---------- En-tête et onglets ---------- */
+.titlebar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 20px; }
+.titlebar h1 { font-size: clamp(28px, 5.5vw, 42px); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.views { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 16px; padding: 6px; border-radius: 14px; background: #0D0F14; border: 1px solid var(--line); box-shadow: 0 8px 20px rgba(0, 0, 0, .45); }
+.views button { min-height: 58px; padding: 6px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; }
+.views button:hover { color: var(--fg); background: var(--surface); }
+.views .vt { font-family: var(--font-display); font-weight: 700; font-size: 16px; line-height: 1.2; }
+.views .vs { font-size: 12px; font-weight: 600; }
+.views button[aria-selected="true"] { background: var(--brand-blue); color: #FFFFFF; }
+@media (max-width: 480px) { .views .vt { font-size: 14px; } .views .vs { font-size: 11px; } }
+.view[hidden] { display: none !important; }
+.view[data-view="jour"] .panels { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 16px; }
+.vbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 24px; }
+.vbar .vehicle { flex: 1 1 300px; margin: 0; }
+.vbar .add { margin: 0; flex: 0 0 auto; }
+.vbar .add[open] { flex-basis: 100%; }
+.arbre-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; margin-top: 32px; }
+.arbre-head .legend { margin-top: 0; }
+.sec-h { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+
+/* ---------- Mini agenda ---------- */
+.mini { margin-top: 28px; padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 16px; }
+.mini-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.mini-head h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.mini-head .day { display: block; font-size: 14px; font-weight: 600; color: var(--muted); }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); }
+.seg button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--brand-blue); color: #FFFFFF; }
+.now { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; }
+.nowcard { border-radius: 14px; padding: 16px; background: var(--bg); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.nowcard.main { border: 2px solid var(--kc, var(--brand-blue)); background: #0E1320; }
+.nowcard .lab { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--kc, var(--brand-blue-hi)); }
+.nowcard .tt { font-family: var(--font-display); font-size: 21px; font-weight: 700; line-height: 1.2; }
+.nowcard .tm { font-size: 14px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.nowcard .left { font-size: 14px; font-weight: 700; color: var(--kc, var(--brand-blue-hi)); }
+.todo-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.todo-chips span { font-size: 14px; font-weight: 600; padding: 4px 10px; border-radius: 8px; background: var(--surface-2); color: var(--fg); overflow-wrap: anywhere; }
+.todo-chips .more { color: var(--muted); }
+.strip-wrap { display: flex; flex-direction: column; gap: 6px; }
+.strip { position: relative; display: flex; gap: 3px; height: 30px; }
+.strip .blk { position: relative; border-radius: 6px; background: var(--kc); opacity: .9; min-width: 4px; display: grid; place-items: center; color: #FFFFFF; font-size: 12px; font-weight: 700; }
+.strip .blk.past { opacity: .28; }
+.strip .blk.cur { outline: 2px solid #FFFFFF; outline-offset: 1px; opacity: 1; }
+.strip .nowline { position: absolute; top: -5px; bottom: -5px; width: 2px; background: #FFFFFF; border-radius: 2px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .15); }
+.strip-scale { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mini-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 6px 16px; }
+.mini-list li { display: grid; grid-template-columns: 10px 48px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.mini-list .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--kc); align-self: center; }
+.mini-list .h { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+.mini-list .w { min-width: 0; }
+.mini-list .w b { font-weight: 700; }
+.mini-list .w span { color: var(--muted); }
+.mini-list li.past { opacity: .45; }
+.mini-list li.cur { border-bottom-color: var(--kc); }
+.mini-list li.cur .h { color: var(--fg); }
+.mini-empty { margin: 0; color: var(--muted); }
+.mini-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.k-fix { --kc: #4D8AB1; }
+.k-suivi { --kc: #8A5CD6; }
+.k-com { --kc: #2F9E8F; }
+.k-terrain { --kc: #E2784A; }
+.k-pause { --kc: #4A4F5C; }
+.k-rdv { --kc: #D6409F; }
+.strip-rdv { position: relative; height: 10px; }
+.strip-rdv span { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--kc); }
+.strip .blk.cov { opacity: .2; }
+.mini-list li.cov { opacity: .45; }
+.mini-list li.k-rdv .w b { color: #F39AC8; }
+.mini-note { margin: 0; font-size: 14px; color: var(--muted); }
+.mini-note.err { color: var(--red-fg); }
+
+/* ---------- Outils : dictée et agenda ---------- */
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; margin-top: 28px; align-items: start; }
+.panel { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); min-width: 0; }
+.panel[open] { border-color: var(--brand-blue); }
+.panel > summary { list-style: none; cursor: pointer; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; min-height: 44px; }
+.panel > summary::-webkit-details-marker { display: none; }
+.panel .p-k { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); }
+.panel h2 { margin: 0; font-family: var(--font-display); font-size: 21px; font-weight: 700; }
+.panel .ps { font-size: 15px; color: var(--muted); }
+.panel .pb { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.panel .pb .field { flex: none; }
+.jr-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px 12px; align-items: end; }
+.jr-form .row { grid-column: 1 / -1; }
+.jr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.jr-list li { display: flex; flex-direction: column; gap: 6px; }
+.jr-list .jl { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.jr-list .todo-chips span { background: var(--bg); border: 1px solid var(--line); }
+.jr-day { margin: 0; font-weight: 700; }
+.panel .hint { margin: 0; font-size: 14px; color: var(--muted); }
+.panel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.act { min-height: 52px; padding: 0 20px; border-radius: 12px; border: 0; background: var(--yes); color: #FFFFFF; font-size: 17px; font-weight: 700; }
+.act:hover:not(:disabled) { filter: brightness(1.1); }
+.act.alt { background: var(--navy); border: 1px solid #2B4F8E; }
+.pmsg { margin: 0; min-height: 22px; font-size: 15px; font-weight: 600; color: var(--muted); }
+.pmsg.ok { color: var(--ok-fg); }
+.pmsg.err { color: var(--red-fg); }
+.prev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.prev label { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; }
+.prev input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--brand-blue); }
+.prev .pv-v { font-weight: 700; }
+.prev .pv-d { color: var(--muted); font-size: 15px; }
+.prev .val { font-weight: 700; }
+.prev .val.oui { color: var(--ok-fg); }
+.prev .val.non { color: #FF9B9E; }
+.prev-h { margin: 6px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.unclear { margin: 0; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--late); color: #F7C79F; font-size: 15px; }
+.agenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.agenda > li { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.agenda > li:first-child { border-top: 0; }
+@media (max-width: 420px) { .agenda > li { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+.agenda .tm { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--brand-blue-hi); font-size: 15px; }
+.agenda .ms { font-weight: 700; }
+.agenda ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+.agenda .pause .ms { color: var(--muted); font-weight: 600; }
+.ag-title { margin: 4px 0 0; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+
+/* ---------- Vue d'ensemble ---------- */
+.overview { margin-top: 28px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.ov-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.ov-head h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--line); background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+.tab .n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--surface-2); color: var(--fg); font-size: 12px; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.tab[aria-selected="true"] { border-color: var(--c, var(--brand-blue)); background: var(--c, var(--brand-blue)); color: var(--on, #FFFFFF); }
+.tab[aria-selected="true"] .n { background: rgba(0, 0, 0, .25); color: inherit; }
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 10px; margin-top: 16px; }
+.vcard { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; text-align: left; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); min-width: 0; }
+.vcard:hover { border-color: var(--brand-blue); }
+.vcard.sel { border: 2px solid var(--brand-blue-hi); padding: 11px 13px; }
+.vcard.blk { border-color: var(--alert); background: #1E1012; }
+.vc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.vc-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.vc-days { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vc-days.late { color: var(--late); }
+.bar { display: block; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--brand-blue); border-radius: 999px; }
+.vc-next { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); min-width: 0; }
+.vc-next .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.vc-next .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+.flag { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.flag.blk { background: var(--alert); color: #FFFFFF; }
+.flag.late { background: var(--late); color: #1B1A22; }
+.ov-note { margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+.po-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.po-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.po-legend .sw { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+.s-todo { background: var(--orange); }
+.s-done { background: var(--brand-blue); }
+.s-later { border: 2px dashed var(--line); }
+#po-msg { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+#po-msg button { min-height: 36px; padding: 0 12px; border-radius: 8px; border: 2px solid currentColor; background: transparent; color: inherit; font-weight: 700; }
+.po-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(96px, 130px)); gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
+.prow.flash { border-color: var(--brand-blue-hi); }
+.prow .pn { font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .prow { grid-template-columns: repeat(3, minmax(0, 1fr)); } .prow .pn { grid-column: 1 / -1; } }
+.pbtn { min-height: 54px; padding: 6px; border-radius: 10px; border: 2px solid var(--line); background: transparent; color: var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; line-height: 1.15; }
+.pbtn .pl { font-size: 12px; font-weight: 600; color: var(--muted); }
+.pbtn .st { font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+.pbtn .st svg { width: 14px; height: 14px; }
+.pbtn.todo-now { background: var(--orange); border-color: var(--orange); }
+.pbtn.todo-now .pl, .pbtn.todo-now .st { color: #1B1A22; }
+.pbtn.done { background: var(--brand-blue); border-color: var(--brand-blue); }
+.pbtn.done .pl, .pbtn.done .st { color: #FFFFFF; }
+.pbtn.later, .pbtn.na { border-style: dashed; }
+.pbtn.later .st, .pbtn.na .st { color: var(--muted); font-weight: 600; }
+
+/* ---------- Arbre ---------- */
+.grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
+@media (max-width: 780px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; scroll-margin-top: 16px; }
+.band { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 12px 20px; background: var(--c); color: var(--on); font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.band .veh { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.body { padding: 24px 20px 20px; display: flex; flex-direction: column; gap: 20px; }
+.stage h2 { margin: 0; font-size: clamp(28px, 6vw, 38px); line-height: 1.1; font-weight: 700; text-wrap: balance; }
+.milestone h2 { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: clamp(30px, 7vw, 46px); }
+.sub { margin: 0; color: var(--muted); }
+.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.answers button { min-height: 64px; border-radius: 12px; font-size: 22px; font-weight: 700; }
+.yes { background: var(--yes); border: 2px solid var(--yes); color: #fff; }
+.no { background: var(--surface); border: 2px solid var(--fg); color: var(--fg); }
+.yes:hover { filter: brightness(1.08); }
+.no:hover { background: var(--bg); }
+.todo { background: var(--ct); color: var(--cf); border: 2px solid var(--c); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.todo .lab { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.todo .txt { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 700; }
+.todo button { min-height: 56px; border: 0; border-radius: 10px; background: var(--c); color: var(--on); font-weight: 700; }
+.todo button:hover { filter: brightness(1.1); }
+.todo .ws { display: flex; flex-wrap: wrap; gap: 10px; }
+.todo .ws .field { flex: 1 1 180px; }
+.todo .ws label { color: var(--cf); }
+.todo > .field { flex: none; }
+.photos { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 12px; }
+.ph-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
+.ph-t { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.ph-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.ph-links a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 8px; background: var(--surface-2); color: var(--brand-blue-hi); font-weight: 700; font-size: 14px; text-decoration: none; }
+.ph-links a:hover { text-decoration: underline; }
+.ph-add { align-self: flex-start; min-height: 48px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--orange); color: #1B1A22; font-weight: 700; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.todo > .field label { color: var(--cf); }
+.todo button.soft { background: transparent; border: 2px solid var(--c); color: var(--cf); min-height: 48px; }
+.blocked { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px; border: 2px solid var(--alert); background: #2A1416; color: #FFD2D3; }
+.blocked .lab { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #FF9B9E; }
+.blocked p { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.blocked button { align-self: flex-start; min-height: 40px; padding: 0 14px; border-radius: 8px; border: 2px solid #FF9B9E; background: transparent; color: #FFD2D3; font-weight: 700; }
+.blkform { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px; border: 2px dashed var(--alert); }
+.blkform .row { display: flex; flex-wrap: wrap; gap: 10px; }
+.blkform .save { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: var(--alert); color: #FFFFFF; font-weight: 700; }
+.primary { min-height: 60px; border: 0; border-radius: 12px; background: var(--c); color: var(--on); font-size: 19px; font-weight: 700; padding: 0 20px; }
+.primary:hover { filter: brightness(1.1); }
+.back { align-self: flex-start; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--muted); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.back:hover { color: var(--fg); }
+.back.warn { color: #FF9B9E; }
+.nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.item { width: 100%; min-height: 52px; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 12px; text-align: left; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; }
+.item:hover { border-color: var(--c); }
+.item .badge { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--c); color: var(--cf); font-weight: 700; font-size: 15px; background: transparent; }
+.item .lab { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.item .who { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.item.done .badge { background: var(--c); color: var(--on); }
+.item.done .lab { color: var(--muted); }
+.item.no { border: 2px solid var(--alert); padding: 7px 11px; background: #2A1416; }
+.item.no .badge { background: var(--alert); border-color: var(--alert); color: #FFFFFF; box-shadow: 0 0 0 4px rgba(229, 72, 77, .28); }
+.item.no .tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--alert); color: #FFFFFF; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; vertical-align: 2px; }
+.item.no.cur { background: #3A181B; }
+.item.cur { background: var(--ct); border: 2px solid var(--c); padding: 7px 11px; }
+.item.cur .lab { color: var(--cf); }
+.item.mile { background: var(--c); color: var(--on); border-color: var(--c); min-height: 44px; grid-template-columns: minmax(0, 1fr) auto; }
+.item.mile .lab { font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: .1em; text-transform: uppercase; color: var(--on); }
+.item.mile .who { color: var(--on); opacity: .92; }
+.item.mile.cur { outline: 3px solid var(--fg); outline-offset: 1px; }
+.item.mile.done { opacity: .85; }
+
+/* ---------- Pied de page ---------- */
+.site-foot { margin-top: 44px; }
+.road { height: 16px; border-radius: 4px; background-color: #15171D; background-image: repeating-linear-gradient(90deg, rgba(242, 243, 246, .8) 0 30px, transparent 30px 56px); background-size: 100% 2px; background-position: center; background-repeat: no-repeat; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.foot-key { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 18px 0 0; font-size: 14px; font-weight: 600; color: var(--muted); }
+.foot-key .k { display: inline-flex; align-items: center; gap: 8px; }
+.foot-key .kb { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--brand-blue); color: #FFFFFF; }
+.foot-key .kb.ok { background: var(--brand-blue); }
+.foot-key .kb.ko { background: var(--alert); border-color: var(--alert); }
+.foot-key .kb svg { width: 12px; height: 12px; }
+.foot-main { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px; margin-top: 22px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.foot-logos { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.foot-logos img { display: block; height: auto; max-width: 100%; }
+.fl-lsa { width: 150px; }
+.fl-vpn { width: 104px; }
+.foot-brand p { margin: 10px 0 0; color: var(--muted); font-size: 15px; }
+.foot-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.foot-place { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.foot-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; background: var(--navy); border: 1px solid #2B4F8E; color: #FFFFFF; font-weight: 700; text-decoration: none; }
+.foot-link:hover { background: #18397A; }
+.foot-link.tool { align-self: flex-start; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.foot-legal { margin: 14px 0 0; font-size: 13px; color: #8A90A0; text-align: center; }
+@media (max-width: 600px) { .foot-side { align-items: flex-start; } .foot-links { justify-content: flex-start; } }
+@media (prefers-reduced-motion: no-preference) {
+  .stage { animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brandbar">
+      <img class="logo-lsa" src="lsa.png" alt="La Solution Automobile" width="640" height="158">
+      <span class="sep" aria-hidden="true"></span>
+      <img class="logo-vpn" src="vpn.png" alt="VPN autos" width="640" height="97">
+      <span class="place">Reims · Tinqueux</span>
+    </div>
+    <div class="titlebar">
+      <div>
+        <p class="eyebrow">Suivi des véhicules d'occasion</p>
+        <h1>Arbre de préparation</h1>
+      </div>
+      <button id="reload" class="ghost" type="button" disabled>Actualiser</button>
+    </div>
+    <p id="sync" class="sync" role="status" aria-live="polite"></p>
+  </header>
+
+  <nav class="views" role="tablist" aria-label="Sections de la page">
+    <button type="button" role="tab" id="tab-jour" data-view="jour" aria-selected="true"><span class="vt">Ma journée</span><span class="vs">Agenda · journal</span></button>
+    <button type="button" role="tab" id="tab-vehicules" data-view="vehicules" aria-selected="false"><span class="vt">Véhicules</span><span class="vs">Stock · arbre · ajout</span></button>
+    <button type="button" role="tab" id="tab-posts" data-view="posts" aria-selected="false"><span class="vt">Posts réseaux</span><span class="vs" id="vs-posts">Arrivage · vente · vendu</span></button>
+  </nav>
+
+  <section class="view" data-view="jour" aria-labelledby="tab-jour">
+  <section class="mini" id="mini" aria-labelledby="mini-t"></section>
+
+  <div class="panels">
+    <details class="panel" id="p-jour" open>
+      <summary><span class="p-k">Journal</span><h2>Journal du jour</h2><span class="ps">Ce que tu fais en dehors des véhicules : réseaux, relances, contacts…</span></summary>
+      <div class="pb">
+        <div id="jr-view"><p class="hint">Le journal apparaît dès que le tableau est lu.</p></div>
+        <form id="jr-form" class="jr-form">
+          <div class="field">
+            <label for="jr-cat">Catégorie</label>
+            <select id="jr-cat">
+              <option value="I">Initiative · réseaux sociaux</option>
+              <option value="E">Relance utile</option>
+              <option value="F">Nouveau contact</option>
+              <option value="G">Prospect avec suite prévue</option>
+              <option value="D">VO traité</option>
+              <option value="H">Blocage · demande de décision</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="jr-txt">Ce que tu as fait</label>
+            <input id="jr-txt" type="text" autocomplete="off" maxlength="200" placeholder="ex. 3 posts réseaux validés">
+          </div>
+          <div class="row"><button type="submit" class="act" id="jr-add">Ajouter au journal</button></div>
+        </form>
+        <p class="pmsg" id="jr-msg" role="status" aria-live="polite"></p>
+      </div>
+    </details>
+    <details class="panel" id="p-dict" hidden>
+      <summary><span class="p-k">Dicter</span><h2>Raconte ta journée</h2><span class="ps">Dis ce que tu as fait, je le reporte dans le tableau.</span></summary>
+      <div class="pb">
+        <div class="field">
+          <label for="dict">Ce que tu as fait</label>
+          <textarea id="dict" rows="5" placeholder="ex. CT passé pour la Caddy, la 5008 est partie chez Jamenko pour la prépa méca, retour prévu mardi. Photos faites sur la C1 grise. Bloqué sur l'Adam, on attend la pièce."></textarea>
+        </div>
+        <p class="hint">Pour parler au lieu de taper : touche le micro du clavier sur iPhone, ou appuie deux fois sur la touche fn sur Mac.</p>
+        <div class="row">
+          <button type="button" class="act" id="dict-go">Analyser</button>
+          <button type="button" class="back" id="dict-clear">Effacer</button>
+        </div>
+        <p class="pmsg" id="dict-msg" role="status" aria-live="polite"></p>
+        <div id="dict-prev"></div>
+      </div>
+    </details>
+    <details class="panel" id="p-agenda">
+      <summary><span class="p-k">Agenda</span><h2>Ma journée de demain</h2><span class="ps">Ton planning type, rempli avec les vrais véhicules à traiter.</span></summary>
+      <div class="pb">
+        <div class="row">
+          <button type="button" class="act" id="ag-go">Préparer l'agenda de demain</button>
+        </div>
+        <p class="pmsg" id="ag-msg" role="status" aria-live="polite"></p>
+        <div id="ag-out"></div>
+      </div>
+    </details>
+  </div>
+
+  </section>
+
+  <section class="view" data-view="vehicules" aria-labelledby="tab-vehicules" hidden>
+    <div class="vbar">
+      <div class="vehicle">
+        <div class="field">
+          <label for="veh">Véhicule en cours</label>
+          <select id="veh" disabled><option value="">Chargement du tableau…</option></select>
+        </div>
+      </div>
+    <details class="add" id="addbox">
+      <summary><span class="plus" aria-hidden="true">+</span>Ajouter un véhicule</summary>
+      <form id="addform" class="add-form">
+        <div class="field">
+          <label for="newveh">Modèle et couleur <span class="req">*</span></label>
+          <input id="newveh" type="text" autocomplete="off" maxlength="50" placeholder="ex. Renault Clio grise">
+        </div>
+        <div class="field">
+          <label for="newimm">Immatriculation</label>
+          <input id="newimm" type="text" autocomplete="off" maxlength="12" autocapitalize="characters" placeholder="ex. AB-123-CD">
+        </div>
+        <div class="field">
+          <label for="newdate">Date d'arrivée</label>
+          <input id="newdate" type="date">
+        </div>
+        <div class="field">
+          <label for="newtype">Type</label>
+          <select id="newtype">
+            <option value="achat">Achat</option>
+            <option value="depot">Dépôt-vente</option>
+            <option value="vpn">Véhicule partenaire VPN</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="newcom">Commentaire</label>
+          <input id="newcom" type="text" autocomplete="off" maxlength="200" placeholder="ex. rayure aile avant gauche, 2 clés">
+        </div>
+        <div class="row full">
+          <button class="act" type="submit" id="addbtn">Ajouter au tableau</button>
+          <button class="back" type="button" id="addcancel">Annuler</button>
+        </div>
+        <p class="pmsg full" id="add-msg" role="status" aria-live="polite"></p>
+      </form>
+    </details>
+    </div>
+
+  <section class="overview" aria-labelledby="ov-title">
+    <div class="ov-head">
+      <h2 id="ov-title">Vue d'ensemble du stock</h2>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Filtrer par personne"></div>
+    </div>
+    <div class="ov-grid" id="ovlist"></div>
+    <p class="ov-note" id="ovnote"></p>
+  </section>
+
+  <div class="arbre-head">
+    <h2 class="sec-h">Arbre du véhicule</h2>
+    <div class="legend" aria-label="Légende des couleurs">
+      <span class="chip v">Élouan · préparation et vente</span>
+      <span class="chip r">Secrétaire · réception, livraison</span>
+      <span class="chip p">Patron · achat et prix</span>
+    </div>
+  </div>
+  <main class="grid">
+    <section id="stage" class="stage" aria-live="polite"></section>
+    <nav aria-label="Toutes les étapes dans l'ordre">
+      <ol id="list" class="list"></ol>
+    </nav>
+  </main>
+  </section>
+
+  <section class="view" data-view="posts" aria-labelledby="tab-posts" hidden>
+  <section class="overview posts" aria-labelledby="po-title">
+    <div class="ov-head">
+      <h2 id="po-title">Posts réseaux</h2>
+      <div class="tabs" id="po-tabs" role="tablist" aria-label="Filtrer les posts"></div>
+    </div>
+    <div class="po-legend" aria-label="Légende">
+      <span><span class="sw s-todo"></span>À poster</span>
+      <span><span class="sw s-done"></span>Posté</span>
+      <span><span class="sw s-later"></span>Pas encore (le véhicule n'est pas encore en vente ou vendu)</span>
+    </div>
+    <p class="ov-note">Touche un bouton quand le post est publié. Retouche-le si tu t'es trompé.</p>
+    <p class="pmsg" id="po-msg" role="status" aria-live="polite"></p>
+    <div class="po-list" id="po-list"></div>
+    <p class="ov-note" id="po-note"></p>
+  </section>
+  </section>
+  <datalist id="ateliers"></datalist>
+
+  <footer class="site-foot">
+    <div class="road" aria-hidden="true"></div>
+    <div class="foot-key" aria-label="Signification des pastilles">
+      <span class="k"><span class="kb ok"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Fait</span>
+      <span class="k"><span class="kb ko"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></span>Non ou en cours</span>
+      <span class="k"><span class="kb"></span>À faire</span>
+    </div>
+    <div class="foot-main">
+      <div class="foot-brand">
+        <div class="foot-logos">
+          <img class="fl-lsa" src="lsa.png" alt="La Solution Automobile" width="640" height="158">
+          <img class="fl-vpn" src="vpn.png" alt="VPN autos" width="640" height="97">
+        </div>
+        <p>Véhicules d'occasion partout en France</p>
+      </div>
+      <div class="foot-side">
+        <p class="foot-place">Reims · Tinqueux</p>
+        <div class="foot-links">
+          <a class="foot-link" href="https://www.spider-vo.net/#mandats" target="_blank" rel="noopener">Ouvrir Spider VO</a>
+          <a class="foot-link" href="https://docs.google.com/spreadsheets/d/13Lm2xMYK13tjH3TT1TBO-Kz6elyRkZD0NYwHrd-C3QA/edit" target="_blank" rel="noopener">Ouvrir le tableau de suivi</a>
+        </div>
+      </div>
+    </div>
+    <p class="foot-legal">Arbre de préparation VO · outil interne de suivi du stock</p>
+  </footer>
+</div>
+
+<script>
+/* Connexion Google + accès direct aux API Google Sheets, Agenda et Drive.
+   Remplace les connecteurs Claude utilisés par la version « page Claude ». */
+(function () {
+  var cfg = window.APP_CONFIG || {};
+  var SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive';
+  var token = null, tokenExp = 0, tokenClient = null, waiting = [], resolveMcp;
+  var mcpReady = new Promise(function (r) { resolveMcp = r; });
+  var $l = function (id) { return document.getElementById(id); };
+
+  try {
+    var saved = JSON.parse(sessionStorage.getItem('arbre-vo-token') || 'null');
+    if (saved && saved.t && saved.e > Date.now()) { token = saved.t; tokenExp = saved.e; }
+  } catch (e) {}
+
+  function showLogin(msg, err) {
+    $l('login').hidden = false;
+    if (msg) $l('login-txt').textContent = msg;
+    $l('login-err').textContent = err || '';
+  }
+  function hideLogin() { $l('login').hidden = true; }
+  function clientId() {
+    var id = String(cfg.googleClientId || '');
+    return /apps\.googleusercontent\.com$/.test(id) ? id : '';
+  }
+  function initClient() {
+    if (tokenClient) return true;
+    if (!window.google || !google.accounts || !google.accounts.oauth2) return false;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId(),
+      scope: SCOPES,
+      callback: function (resp) {
+        if (!resp || resp.error) { showLogin(null, 'Connexion refusée ou annulée. Réessaie.'); return; }
+        token = resp.access_token;
+        tokenExp = Date.now() + (Number(resp.expires_in) - 60) * 1000;
+        try { sessionStorage.setItem('arbre-vo-token', JSON.stringify({ t: token, e: tokenExp })); } catch (e) {}
+        hideLogin();
+        var w = waiting; waiting = [];
+        w.forEach(function (f) { f(token); });
+        resolveMcp(mcp);
+      },
+      error_callback: function () { showLogin(null, 'La fenêtre de connexion Google a été fermée ou bloquée. Réessaie.'); }
+    });
+    return true;
+  }
+  function getToken() {
+    if (token && Date.now() < tokenExp) return Promise.resolve(token);
+    token = null;
+    return new Promise(function (res) {
+      waiting.push(res);
+      showLogin('Ta session Google a expiré. Reconnecte-toi pour continuer (ta dernière action sera envoyée ensuite).');
+    });
+  }
+  function api(method, url, body, headers) {
+    return getToken().then(function (t) {
+      var h = { Authorization: 'Bearer ' + t };
+      Object.keys(headers || {}).forEach(function (k) { h[k] = headers[k]; });
+      if (body && typeof body === 'object' && !(headers && headers['Content-Type'])) { h['Content-Type'] = 'application/json'; body = JSON.stringify(body); }
+      return fetch(url, { method: method, headers: h, body: body });
+    }).then(function (r) {
+      if (r.status === 401) { token = null; return api(method, url, body, headers); }
+      if (!r.ok) return r.text().then(function (tx) { throw { code: 'tool_error', message: tx }; });
+      return r.status === 204 ? {} : r.text().then(function (tx) { return tx ? JSON.parse(tx) : {}; });
+    }, function (e) {
+      if (e && e.code) throw e;
+      throw { code: 'server_unavailable', message: String(e) };
+    });
+  }
+  function localIso(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(s));
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).toISOString();
+  }
+  var SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets/';
+  var CAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+  var mcp = {
+    listTools: function () { return Promise.resolve({ servers: [], fileArgs: false }); },
+    callTool: function (server, tool, input) {
+      input = input || {};
+      var wrap = function (p) { return p.then(function (v) { return { payload: v }; }); };
+      if (server === 'Google Sheets' && tool === 'get_values') {
+        return wrap(api('GET', SHEETS + input.spreadsheetId + '/values/' + encodeURIComponent(input.range)));
+      }
+      if (server === 'Google Sheets' && tool === 'update_values') {
+        return wrap(api('PUT', SHEETS + input.spreadsheetId + '/values/' + encodeURIComponent(input.range) + '?valueInputOption=USER_ENTERED', { range: input.range, values: input.values }));
+      }
+      if (server === 'Google Calendar' && tool === 'list_events') {
+        return wrap(api('GET', CAL + '?singleEvents=true&orderBy=startTime&maxResults=' + (input.pageSize || 100) +
+          '&timeMin=' + encodeURIComponent(localIso(input.startTime)) + '&timeMax=' + encodeURIComponent(localIso(input.endTime))));
+      }
+      if (server === 'Google Calendar' && tool === 'create_event') {
+        var ev = {
+          summary: input.summary, description: input.description || '',
+          start: { dateTime: input.startTime, timeZone: 'Europe/Paris' },
+          end: { dateTime: input.endTime, timeZone: 'Europe/Paris' }
+        };
+        if (input.colorId) ev.colorId = String(input.colorId);
+        if (input.useDefaultReminders === false) ev.reminders = { useDefault: false, overrides: (input.overrideReminders || []).map(function (r) { return { method: 'popup', minutes: Number(r.minutes) || 0 }; }) };
+        return wrap(api('POST', CAL, ev));
+      }
+      if (server === 'Google Calendar' && tool === 'delete_event') {
+        return wrap(api('DELETE', CAL + '/' + encodeURIComponent(input.eventId)));
+      }
+      if (server === 'Google Drive' && tool === 'create_file') {
+        var b = 'arbrevo' + Date.now();
+        var meta = { name: input.title, parents: input.parentId ? [input.parentId] : undefined, mimeType: input.contentMimeType || 'image/jpeg' };
+        var body = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) +
+          '\r\n--' + b + '\r\nContent-Type: ' + (input.contentMimeType || 'image/jpeg') + '\r\nContent-Transfer-Encoding: base64\r\n\r\n' + input.base64Content + '\r\n--' + b + '--';
+        return api('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', body, { 'Content-Type': 'multipart/related; boundary=' + b })
+          .then(function (f) { return { payload: { id: f.id, viewUrl: f.webViewLink } }; });
+      }
+      return Promise.reject({ code: 'bad_request', message: 'Action inconnue : ' + server + ' / ' + tool });
+    }
+  };
+
+  window.claude = { use: function (name) { return name === 'mcp' ? mcpReady : Promise.resolve(null); } };
+
+  function boot() {
+    if (!clientId()) { showLogin(null, "L'identifiant Google (Client ID) n'est pas encore renseigné dans le fichier config.js. Voir le guide LISEZ-MOI."); $l('login-btn').disabled = true; return; }
+    if (token) { hideLogin(); resolveMcp(mcp); }
+    $l('login-btn').addEventListener('click', function () {
+      $l('login-err').textContent = '';
+      if (!initClient()) { $l('login-err').textContent = 'Le service de connexion Google ne répond pas. Vérifie ta connexion internet puis réessaie.'; return; }
+      tokenClient.requestAccessToken({ prompt: '' });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<script>
+(function () {
+  var SHEET_ID = '13Lm2xMYK13tjH3TT1TBO-Kz6elyRkZD0NYwHrd-C3QA';
+  var TAB = "'STOCK VO'";
+  var SERVER = 'Google Sheets';
+  var FIRST_ROW = 4, LAST_ROW = 203;
+  var COL_DATE_ARR = 'B', COL_ATELIER = 'U', COL_NEXT = 'V', COL_DATE_PREVUE = 'W', COL_BLOCAGE = 'X', COL_DATE_LIV = 'Z', COL_RECHARGE = 'AA', COL_TRAVAUX = 'AB', COL_PHOTOS = 'AF';
+  var DRIVE = 'Google Drive', PHOTO_FOLDER = '1Ri-CXRujXMFpp9yvXvLImF9e6O0bTChw';
+  var SPIDER_URL = 'https://www.spider-vo.net/#mandats';
+  var LATE_DAYS = 15;
+
+  var WHO = { v: 'Élouan', r: 'Secrétaire', p: 'Patron' };
+  var STEPS = [
+    { o: 'p', c: 'C', q: 'Achat validé par le patron ?', a: "Le patron valide l'achat" },
+    { o: 'p', c: 'D', q: 'Prix de vente fixé par le patron ?', a: 'Le patron fixe le prix' },
+    { o: 'r', c: 'E', q: 'Réception faite, papiers et clés récupérés ?', a: 'Les réclamer, puis reprendre' },
+    { o: 'v', c: 'F', q: 'Véhicule ajouté sur Spider VO ?', a: "L'ajouter dans Spider VO", spider: true },
+    { o: 'v', c: 'G', q: 'Options ajoutées sur Spider VO ?', a: 'Les saisir dans Spider VO', spider: true },
+    { o: 'v', c: 'H', q: 'Test batterie réussi ?', a: 'Recharger ou remplacer la batterie', recharge: true },
+    { o: 'v', c: 'I', q: "Niveau d'essence suffisant ?", a: "Faire l'appoint d'essence" },
+    { o: 'v', c: 'J', q: 'Contrôle technique valide ?', a: 'Passer le CT ou la contre-visite' },
+    { o: 'v', c: 'K', q: 'Pièces commandées ?', a: 'Commander les pièces' },
+    { o: 'v', c: 'L', q: 'Prépa mécanique terminée ?', a: "Envoyer le véhicule à l'atelier", atelier: true },
+    { o: 'v', c: 'M', q: 'Carrosserie en bon état ?', a: 'Envoyer le véhicule en carrosserie', atelier: true, travaux: true },
+    { o: 'v', c: 'N', q: 'Kit de dépannage complet ?', a: 'Compléter le kit' },
+    { o: 'v', c: 'O', q: 'Nettoyage terminé ?', a: 'Nettoyer intérieur et extérieur' },
+    { o: 'v', c: 'P', q: 'Photos prises ?', a: 'Sortir et photographier le véhicule' },
+    { o: 'v', m: true, t: 'Prêt à être vendu', s: 'Toute la préparation est terminée.', go: 'Continuer : annonce et vente' },
+    { o: 'v', c: 'Q', c2: 'R', q: 'Annonce en ligne ?', a: "Rédiger et publier l'annonce" },
+    { o: 'v', c: 'S', q: 'Véhicule vendu ?', a: 'Il reste en vente', redo: 'Revenir à la question' },
+    { o: 'r', c: 'T', m: true, end: true, t: 'Véhicule livré' }
+  ];
+  var READY = 14, LAST = STEPS.length - 1;
+  var QCOUNT = STEPS.filter(function (s) { return s.c; }).length;
+
+  var KEY = 'arbre-prepa-vo-v3';
+  var state = { row: 0, i: 0, mode: 'ask', tab: 'all', blockOpen: false };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && typeof saved.row === 'number') state.row = saved.row;
+    if (saved && typeof saved.i === 'number' && saved.i >= 0 && saved.i < STEPS.length) state.i = saved.i;
+    if (saved && /^(all|v|r|p)$/.test(saved.tab)) state.tab = saved.tab;
+  } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify({ row: state.row, i: state.i, tab: state.tab })); } catch (e) {} }
+
+  var mcp = null, linked = false;
+  var vehicles = [], firstEmptyRow = 0;
+  var localNo = {};
+
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $('stage'), list = $('list'), sel = $('veh'), sync = $('sync');
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function colIdx(letter) { var n = 0; for (var k = 0; k < letter.length; k++) n = n * 26 + (letter.charCodeAt(k) - 64); return n - 1; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function today() { var d = new Date(); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function frToIso(s) { var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s || '').trim()); return m ? m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]) : ''; }
+  function isoToFr(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
+  function daysSince(s) {
+    var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s || '').trim());
+    if (!m) return null;
+    var d = new Date(+m[3], +m[2] - 1, +m[1]);
+    var n = Math.floor((Date.now() - d.getTime()) / 86400000);
+    return n >= 0 ? n : 0;
+  }
+  function isOK(v) { return /^(oui|sans objet)$/i.test(String(v || '').trim()); }
+  function isNo(v) { return /^(non|en cours)$/i.test(String(v || '').trim()); }
+  function current() { for (var k = 0; k < vehicles.length; k++) if (vehicles[k].row === state.row) return vehicles[k]; return null; }
+  function cell(v, letter) { return String((v.vals && v.vals[colIdx(letter)]) || '').trim(); }
+  function stepDone(v, i) {
+    var s = STEPS[i];
+    if (s.c) return isOK(cell(v, s.c));
+    for (var k = 0; k < i; k++) if (!stepDone(v, k)) return false;
+    return true;
+  }
+  function startIndex(v) { for (var k = 0; k < STEPS.length; k++) if (!stepDone(v, k)) return k; return LAST; }
+  function delivered(v) { return isOK(cell(v, 'T')); }
+  function progress(v) { var n = 0; STEPS.forEach(function (s) { if (s.c && isOK(cell(v, s.c))) n++; }); return n; }
+  function setLocal(v, letter, value) { if (!v.vals) v.vals = []; while (v.vals.length <= colIdx(letter)) v.vals.push(''); v.vals[colIdx(letter)] = value; }
+  function label(i) { var s = STEPS[i]; return s ? (s.m ? s.t : s.q) : ''; }
+
+  /* ---------- Statut d'enregistrement ---------- */
+  var retryFn = null;
+  function setSync(kind, text, canRetry) {
+    sync.className = 'sync' + (kind ? ' ' + kind : '');
+    sync.innerHTML = '<span>' + esc(text || '') + '</span>' + (canRetry ? '<button type="button" id="retry">Réessayer</button>' : '');
+  }
+  sync.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'retry' && retryFn) { var f = retryFn; retryFn = null; f(); }
+  });
+  function showError(err, again) {
+    var code = (err && err.code) || 'upstream_error';
+    var msg, retry = false;
+    if (code === 'server_not_connected') msg = "Google Sheets n'est pas connecté pour toi : ajoute-le dans claude.ai › Réglages › Connecteurs, puis recharge la page.";
+    else if (code === 'needs_reauth') msg = 'Ta connexion Google Sheets a expiré : reconnecte-la dans claude.ai › Réglages › Connecteurs.';
+    else if (code === 'selection_required') msg = 'Choisis le compte Google Sheets à utiliser dans la fenêtre de claude.ai.';
+    else if (code === 'not_in_manifest' || code === 'approval_required' || code === 'consent_required') { msg = "La page n'a pas encore l'autorisation d'utiliser Google Sheets. Accepte la demande, puis réessaie."; retry = true; }
+    else if (code === 'blocked_by_policy') msg = 'Ton organisation bloque cet accès à Google Sheets.';
+    else if (code === 'tool_error') { msg = "Le tableau a refusé la modification. Vérifie que tu as l'accès en modification au tableau."; retry = true; }
+    else if (code === 'not_granted' || code === 'capability_disabled' || code === 'capability_removed') msg = "Liaison avec le tableau indisponible ici : l'arbre marche, mais rien n'est enregistré.";
+    else { msg = "Pas de réponse de Google Sheets : la modification n'est peut-être pas enregistrée."; retry = true; }
+    retryFn = retry ? again : null;
+    setSync('err', msg, retry);
+  }
+
+  /* ---------- Lecture du tableau ---------- */
+  function payloadOf(r) {
+    var p = r && r.payload;
+    if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { p = null; } }
+    return p || {};
+  }
+  function loadVehicles() {
+    if (!mcp) return Promise.resolve();
+    setSync('', 'Lecture du tableau…');
+    $('reload').disabled = true;
+    return mcp.callTool(SERVER, 'get_values', { spreadsheetId: SHEET_ID, range: TAB + '!A' + FIRST_ROW + ':AF' + LAST_ROW }, { cache: false })
+      .then(function (r) {
+        var rows = payloadOf(r).values || [];
+        vehicles = []; firstEmptyRow = 0;
+        for (var k = 0; k <= LAST_ROW - FIRST_ROW; k++) {
+          var row = rows[k] || [];
+          var name = String(row[0] || '').trim();
+          if (name) vehicles.push({ row: k + FIRST_ROW, name: name, vals: row.slice() });
+          else if (!firstEmptyRow) firstEmptyRow = k + FIRST_ROW;
+        }
+        linked = true;
+        renderSelect(); renderAteliers();
+        var v = current();
+        if (v) { state.i = startIndex(v); state.mode = 'ask'; }
+        setSync('ok', vehicles.length + ' véhicules lus dans le tableau.');
+        render();
+        loadJournal();
+      })
+      .catch(function (err) { showError(err, loadVehicles); renderSelect(); })
+      .then(function () { $('reload').disabled = false; });
+  }
+  function renderSelect() {
+    var h = '<option value="">' + (linked ? 'Choisis un véhicule…' : 'Tableau non lu') + '</option>';
+    vehicles.forEach(function (v) { h += '<option value="' + v.row + '"' + (v.row === state.row ? ' selected' : '') + '>' + esc(v.name) + '</option>'; });
+    sel.innerHTML = h;
+    sel.disabled = !linked;
+    $('addbtn').disabled = !linked;
+  }
+  function renderAteliers() {
+    var seen = {}, h = '';
+    vehicles.forEach(function (v) { var a = cell(v, COL_ATELIER); if (a && !seen[a.toLowerCase()]) { seen[a.toLowerCase()] = 1; h += '<option value="' + esc(a) + '"></option>'; } });
+    $('ateliers').innerHTML = h;
+  }
+  function selectRow(row) {
+    state.row = row;
+    var v = current();
+    state.i = v ? startIndex(v) : 0; state.mode = 'ask'; state.blockOpen = false;
+    photoMsg = { k: '', t: '' };
+    renderSelect();
+    render();
+  }
+  sel.addEventListener('change', function () { selectRow(parseInt(sel.value, 10) || 0); });
+  $('reload').addEventListener('click', function () { calCache = {}; loadVehicles(); });
+
+  /* ---------- Écriture dans le tableau ---------- */
+  var queue = Promise.resolve();
+  function write(range, values) {
+    if (!mcp || !linked) return Promise.resolve();
+    var job = function () {
+      setSync('', 'Enregistrement…');
+      return mcp.callTool(SERVER, 'update_values', { spreadsheetId: SHEET_ID, range: (range.indexOf('!') >= 0 ? range : TAB + '!' + range), values: values })
+        .then(function () { setSync('ok', 'Enregistré dans le tableau.'); })
+        .catch(function (err) { showError(err, function () { write(range, values); }); });
+    };
+    queue = queue.then(job, job);
+    return queue;
+  }
+  function writeCell(v, letter, value) { setLocal(v, letter, value); return write(letter + v.row, [[value]]); }
+  function record(v, s, value, next) {
+    if (!linked || !v) return;
+    if (s.c2) {
+      var second = value === 'Oui' ? 'Oui' : cell(v, s.c2);
+      setLocal(v, s.c, value); setLocal(v, s.c2, second);
+      write(s.c + v.row + ':' + s.c2 + v.row, [[value, second]]);
+    } else if (s.c && value != null) {
+      writeCell(v, s.c, value);
+    }
+    if (next != null) writeCell(v, COL_NEXT, next);
+  }
+
+  function addMsg(kind, text) { var el = $('add-msg'); el.className = 'pmsg full' + (kind ? ' ' + kind : ''); el.textContent = text || ''; }
+  function resetAddForm() {
+    $('newveh').value = ''; $('newimm').value = ''; $('newcom').value = ''; $('newtype').value = 'achat';
+    var d = new Date(); $('newdate').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  resetAddForm();
+  $('addcancel').addEventListener('click', function () { resetAddForm(); addMsg('', ''); $('addbox').open = false; });
+  $('addform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var model = $('newveh').value.trim().replace(/\s+/g, ' ');
+    var imm = $('newimm').value.trim().toUpperCase().replace(/\s+/g, ' ');
+    var mImm = /^([A-Z]{2})[\s-]*(\d{3})[\s-]*([A-Z]{2})$/.exec(imm);
+    if (mImm) imm = mImm[1] + '-' + mImm[2] + '-' + mImm[3];
+    if (!model) { addMsg('err', 'Indique au moins le modèle du véhicule.'); $('newveh').focus(); return; }
+    if (!linked) { addMsg('err', "Le tableau n'est pas relié : impossible d'ajouter le véhicule pour l'instant."); return; }
+    var name = imm ? model + ' – ' + imm : model;
+    var dup = vehicles.some(function (v) { return v.name.toLowerCase() === name.toLowerCase() || (imm && v.name.toUpperCase().indexOf(imm) >= 0); });
+    if (dup) { addMsg('err', 'Ce véhicule est déjà dans le tableau. Choisis-le dans la liste « Véhicule en cours ».'); return; }
+    var row = nextFreeRow();
+    if (!row) { addMsg('err', 'Plus de ligne libre dans le tableau (lignes ' + FIRST_ROW + ' à ' + LAST_ROW + ').'); return; }
+    var dateFr = isoToFr($('newdate').value) || today();
+    var type = $('newtype').value;
+    var com = [type === 'depot' ? 'Depot/Vente' : type === 'vpn' ? 'Vehicule Partenaire Vpn' : '', $('newcom').value.trim()].filter(Boolean).join(' · ');
+    var v = { row: row, name: name, vals: [name, dateFr] };
+    vehicles.push(v);
+    write('A' + row + ':B' + row, [[name, dateFr]]);
+    if (type === 'depot') writeCell(v, 'C', 'Sans objet');
+    if (com) writeCell(v, 'Y', com);
+    writeCell(v, COL_NEXT, label(startIndex(v)));
+    addMsg('', 'Ajout en cours…');
+    resetAddForm();
+    selectRow(row);
+    queue.then(function () {
+      if (/\berr\b/.test(sync.className)) { addMsg('err', "L'ajout n'a pas été enregistré : voir le message en haut, puis réessaie."); return; }
+      addMsg('ok', name + ' a été ajouté au tableau (ligne ' + row + ').');
+      return loadVehicles();
+    });
+  });
+
+  /* ---------- Vue d'ensemble ---------- */
+  function ownerOfNext(v) { return STEPS[startIndex(v)].o; }
+  function renderOverview() {
+    var tabs = $('tabs'), grid = $('ovlist'), note = $('ovnote');
+    if (!linked) {
+      tabs.innerHTML = '';
+      grid.innerHTML = '';
+      note.textContent = 'La vue d\'ensemble apparaît dès que le tableau est lu.';
+      return;
+    }
+    var active = vehicles.filter(function (v) { return !delivered(v); });
+    var counts = { all: active.length, v: 0, r: 0, p: 0 };
+    active.forEach(function (v) { counts[ownerOfNext(v)]++; });
+    var defs = [['all', 'Tout le stock', ''], ['v', 'Élouan', 'o-v'], ['r', 'Secrétaire', 'o-r'], ['p', 'Patron', 'o-p']];
+    tabs.innerHTML = defs.map(function (d) {
+      return '<button type="button" role="tab" class="tab ' + d[2] + '" data-tab="' + d[0] + '" aria-selected="' + (state.tab === d[0]) + '">' + d[1] + ' <span class="n">' + counts[d[0]] + '</span></button>';
+    }).join('');
+
+    var shown = active.filter(function (v) { return state.tab === 'all' || ownerOfNext(v) === state.tab; });
+    shown.sort(function (a, b) {
+      var ab = cell(a, COL_BLOCAGE) ? 1 : 0, bb = cell(b, COL_BLOCAGE) ? 1 : 0;
+      if (ab !== bb) return bb - ab;
+      var al = isLate(a) ? 1 : 0, bl = isLate(b) ? 1 : 0;
+      if (al !== bl) return bl - al;
+      var pa = progress(a), pb = progress(b);
+      if (pa !== pb) return pa - pb;
+      return (daysSince(cell(b, COL_DATE_ARR)) || 0) - (daysSince(cell(a, COL_DATE_ARR)) || 0);
+    });
+    grid.innerHTML = shown.map(function (v) {
+      var nx = startIndex(v), s = STEPS[nx], p = progress(v), pct = Math.round(p / QCOUNT * 100);
+      var days = daysSince(cell(v, COL_DATE_ARR)), late = isLate(v), blk = cell(v, COL_BLOCAGE);
+      var flags = (blk ? '<span class="flag blk">Bloqué</span>' : '') + (late ? '<span class="flag late">+' + LATE_DAYS + ' jours</span>' : '');
+      return '<button type="button" class="vcard o-' + s.o + (v.row === state.row ? ' sel' : '') + (blk ? ' blk' : '') + '" data-row="' + v.row + '">' +
+        '<span class="vc-top"><span class="vc-name">' + esc(v.name) + '</span><span class="vc-days' + (late ? ' late' : '') + '">' + (days == null ? '' : days + ' j') + '</span></span>' +
+        '<span class="bar" title="' + p + ' étapes sur ' + QCOUNT + '"><span style="width:' + pct + '%"></span></span>' +
+        '<span class="vc-next"><span class="dot"></span><span class="t">' + esc(label(nx)) + '</span></span>' +
+        (flags ? '<span class="vc-flags">' + flags + '</span>' : '') +
+        '</button>';
+    }).join('');
+    var hidden = vehicles.length - active.length;
+    var msg = shown.length ? '' : (state.tab === 'all' ? 'Aucun véhicule en cours.' : 'Rien en attente pour ' + WHO[state.tab] + '.');
+    if (hidden) msg += (msg ? ' ' : '') + hidden + ' véhicule' + (hidden > 1 ? 's livrés masqués' : ' livré masqué') + '.';
+    note.textContent = msg;
+  }
+  function isLate(v) { var d = daysSince(cell(v, COL_DATE_ARR)); return d != null && d > LATE_DAYS && !stepDone(v, READY); }
+  $('tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-tab]');
+    if (!b) return;
+    state.tab = b.getAttribute('data-tab'); renderOverview(); save();
+  });
+  $('ovlist').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-row]');
+    if (!b) return;
+    selectRow(parseInt(b.getAttribute('data-row'), 10));
+    stage.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+
+  /* ---------- Affichage de l'étape ---------- */
+  var CROSS = '<svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Non"><path d="M4 4L12 12M12 4L4 12" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>';
+  var CHECK = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function blockHtml(v) {
+    if (!v || !linked) return '';
+    var blk = cell(v, COL_BLOCAGE), h = '';
+    if (blk && !state.blockOpen) {
+      h += '<div class="blocked" role="note"><p class="lab">Blocage signalé</p><p>' + esc(blk) + '</p><button type="button" data-act="unblock">Blocage levé</button></div>';
+    }
+    if (state.blockOpen) {
+      h += '<div class="blkform"><div class="field"><label for="blk">Qu\'est-ce qui bloque ?</label><textarea id="blk" maxlength="300" placeholder="ex. En attente de la pièce, client injoignable…">' + esc(blk) + '</textarea></div>' +
+        '<div class="row"><button type="button" class="save" data-act="saveblk">Enregistrer le blocage</button><button type="button" class="back" data-act="cancelblk">Annuler</button></div></div>';
+    }
+    return h;
+  }
+
+  function renderStage() {
+    var s = STEPS[state.i], v = current(), h = '';
+    var vehTag = v ? '<span class="veh">' + esc(v.name) + '</span>' : '';
+    if (s.end) {
+      var done = v && stepDone(v, state.i);
+      h += '<div class="o-' + s.o + ' milestone">';
+      h += '<div class="band"><span>' + WHO[s.o] + '</span>' + vehTag + '</div>';
+      h += '<div class="body"><h2>' + s.t + '</h2>';
+      if (done) {
+        h += '<p class="sub">Le dossier est terminé' + (cell(v, COL_DATE_LIV) ? ' (livré le ' + esc(cell(v, COL_DATE_LIV)) + ')' : '') + '.</p>';
+        h += '<button class="primary" type="button" data-act="new">Passer à un autre véhicule</button>';
+      } else {
+        h += '<p class="sub">Une fois le véhicule remis au client, marque-le comme livré.</p>';
+        h += '<button class="primary" type="button" data-act="deliver">Marquer comme livré</button>';
+      }
+      h += '<button class="back" type="button" data-act="prev">Revenir à l\'étape précédente</button>';
+      h += '</div></div>';
+    } else if (s.m) {
+      h += '<div class="o-' + s.o + ' milestone">';
+      h += '<div class="band"><span>Étape franchie</span>' + vehTag + '</div>';
+      h += '<div class="body"><h2>' + s.t + '</h2><p class="sub">' + s.s + '</p>';
+      h += '<button class="primary" type="button" data-act="yes">' + s.go + '</button>';
+      h += '<button class="back" type="button" data-act="prev">Revenir à l\'étape précédente</button>';
+      h += '</div></div>';
+    } else {
+      h += '<div class="o-' + s.o + '">';
+      h += '<div class="band"><span>' + WHO[s.o] + '</span>' + vehTag + '</div>';
+      h += '<div class="body">';
+      h += blockHtml(v);
+      h += '<h2>' + s.q + '</h2>';
+      var lastRech = s.recharge && v ? cell(v, COL_RECHARGE) : '';
+      if (state.mode === 'recharge') {
+        h += '<div class="todo"><p class="lab">Batterie OK · recharge de la batterie</p><p class="txt">Quand la batterie a-t-elle été rechargée ?</p>' +
+          '<div class="ws"><div class="field"><label for="rechd">Date de la recharge</label><input id="rechd" type="date" value="' + esc(frToIso(lastRech) || isoDay(new Date())) + '"></div></div>' +
+          '<button type="button" data-act="saverech">Enregistrer la recharge et continuer</button>' +
+          '<button type="button" class="soft" data-act="skiprech">Pas de recharge, continuer</button></div>';
+      } else if (state.mode === 'ask') {
+        h += '<div class="answers"><button class="yes" type="button" data-act="yes">Oui</button><button class="no" type="button" data-act="no">Non</button></div>';
+        if (s.recharge && v && linked) h += '<p class="sub">' + (lastRech ? 'Dernière recharge : <b>' + esc(lastRech) + '</b>. ' : 'Aucune recharge notée. ') + '<button type="button" class="back" data-act="openrech">Noter une recharge</button></p>';
+        if (s.travaux && v && cell(v, COL_TRAVAUX)) h += '<p class="sub">Travaux notés : <b>' + esc(cell(v, COL_TRAVAUX)) + '</b></p>';
+      } else {
+        h += '<div class="todo"><p class="lab">Non : à faire</p><p class="txt">' + s.a + '</p>';
+        if (s.atelier && v && linked) {
+          if (s.travaux) h += '<div class="field"><label for="trv">Ce qu\'il y a à faire en carrosserie</label><textarea id="trv" maxlength="300" placeholder="ex. rayure portière avant droite, pare-choc arrière à repeindre, bosse sur le capot">' + esc(cell(v, COL_TRAVAUX)) + '</textarea></div>';
+          h += '<div class="ws">' +
+            '<div class="field"><label for="atl">Atelier / responsable</label><input id="atl" type="text" list="ateliers" autocomplete="off" maxlength="60" value="' + esc(cell(v, COL_ATELIER)) + '"></div>' +
+            '<div class="field"><label for="atd">Date prévue</label><input id="atd" type="date" value="' + esc(frToIso(cell(v, COL_DATE_PREVUE))) + '"></div>' +
+            '</div>';
+          h += '<button type="button" class="soft" data-act="saveatl">' + (s.travaux ? 'Enregistrer les travaux, l\'atelier et la date' : 'Enregistrer l\'atelier et la date') + '</button>';
+        }
+        h += '<button type="button" data-act="redo">' + (s.redo || 'C\'est fait, reprendre la question') + '</button></div>';
+      }
+      if (s.travaux && v && linked) h += photoBlock(v);
+      if (s.spider) h += '<a class="foot-link tool" href="' + SPIDER_URL + '" target="_blank" rel="noopener">Ouvrir Spider VO</a>';
+      h += '<div class="nav">';
+      if (state.i > 0) h += '<button class="back" type="button" data-act="prev">Revenir à l\'étape précédente</button>';
+      if (v && linked && !state.blockOpen) h += '<button class="back warn" type="button" data-act="openblk">' + (cell(v, COL_BLOCAGE) ? 'Modifier le blocage' : 'Signaler un blocage') + '</button>';
+      h += '<button class="back" type="button" data-act="skip">Passer à l\'étape suivante</button>';
+      h += '</div>';
+      h += '</div></div>';
+    }
+    stage.innerHTML = h;
+  }
+
+  function renderList() {
+    var v = current(), h = '';
+    STEPS.forEach(function (s, i) {
+      var no = v ? !!(s.c && !s.m && isNo(cell(v, s.c))) : !!localNo[i];
+      var done = !no && (v ? stepDone(v, i) : i < state.i);
+      var cls = 'item o-' + s.o + (done ? ' done' : '') + (no ? ' no' : '') + (i === state.i ? ' cur' : '') + (s.m ? ' mile' : '');
+      var cur = i === state.i ? ' aria-current="step"' : '';
+      if (s.m) {
+        h += '<li><button type="button" class="' + cls + '" data-i="' + i + '"' + cur + '><span class="lab">' + s.t + '</span><span class="who">' + WHO[s.o] + '</span></button></li>';
+      } else {
+        h += '<li><button type="button" class="' + cls + '" data-i="' + i + '"' + cur + '><span class="badge">' + (done ? CHECK : no ? CROSS : '') + '</span><span class="lab">' + s.q + (no ? ' <span class="tag">Non</span>' : '') + (s.recharge && v && cell(v, COL_RECHARGE) ? ' <span class="who">· rechargée le ' + esc(cell(v, COL_RECHARGE)) + '</span>' : '') + '</span><span class="who">' + WHO[s.o] + '</span></button></li>';
+      }
+    });
+    list.innerHTML = h;
+  }
+
+  function render() { renderMini(); renderOverview(); renderPosts(); renderStage(); renderList(); save(); }
+
+  stage.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act]');
+    if (!b) return;
+    var act = b.getAttribute('data-act'), s = STEPS[state.i], v = current();
+    if (act === 'yes') {
+      if (!v) delete localNo[state.i];
+      if (state.i < LAST) {
+        record(v, s, s.c ? 'Oui' : null, label(state.i + 1));
+        if (s.recharge && v && linked) state.mode = 'recharge';
+        else { state.i++; state.mode = 'ask'; }
+      }
+    } else if (act === 'openrech') {
+      state.mode = 'recharge';
+    } else if (act === 'saverech') {
+      var rd = isoToFr($('rechd').value);
+      if (v && rd) writeCell(v, COL_RECHARGE, rd);
+      if (state.i < LAST) state.i++;
+      state.mode = 'ask';
+    } else if (act === 'skiprech') {
+      if (state.i < LAST) state.i++;
+      state.mode = 'ask';
+    } else if (act === 'no') {
+      if (!v) localNo[state.i] = true;
+      record(v, s, 'En cours', s.a);
+      state.mode = 'action';
+    } else if (act === 'skip') {
+      if (state.i < LAST) { state.i++; state.mode = 'ask'; }
+    } else if (act === 'redo') {
+      state.mode = 'ask';
+    } else if (act === 'prev') {
+      if (state.i > 0) { state.i--; state.mode = 'ask'; }
+    } else if (act === 'addphotos') {
+      var inp = $('phin'); if (inp) { inp.value = ''; inp.click(); }
+      return;
+    } else if (act === 'saveatl') {
+      if (v) {
+        var atl = $('atl').value.trim(), atd = isoToFr($('atd').value);
+        setLocal(v, COL_ATELIER, atl); setLocal(v, COL_DATE_PREVUE, atd);
+        write(COL_ATELIER + v.row, [[atl]]);
+        write(COL_DATE_PREVUE + v.row, [[atd]]);
+        if (s.travaux && $('trv')) writeCell(v, COL_TRAVAUX, $('trv').value.trim());
+        renderAteliers();
+      }
+      renderOverview();
+      return;
+    } else if (act === 'openblk') {
+      state.blockOpen = true;
+    } else if (act === 'cancelblk') {
+      state.blockOpen = false;
+    } else if (act === 'saveblk') {
+      if (v) writeCell(v, COL_BLOCAGE, $('blk').value.trim());
+      state.blockOpen = false;
+    } else if (act === 'unblock') {
+      if (v) writeCell(v, COL_BLOCAGE, '');
+    } else if (act === 'deliver') {
+      if (v && linked) {
+        setLocal(v, s.c, 'Oui'); setLocal(v, COL_DATE_LIV, today()); setLocal(v, COL_NEXT, 'Livré');
+        write(s.c + v.row, [['Oui']]);
+        write(COL_NEXT + v.row, [['Livré']]);
+        write(COL_DATE_LIV + v.row, [[today()]]);
+      } else if (!v) {
+        setSync('err', 'Choisis d\'abord un véhicule pour enregistrer la livraison.');
+      }
+    } else if (act === 'new') {
+      state.row = 0; state.i = 0; state.mode = 'ask'; renderSelect(); sel.focus();
+    }
+    render();
+    if (act === 'openblk') { var t = $('blk'); if (t) t.focus(); }
+  });
+  list.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-i]');
+    if (!b) return;
+    state.i = parseInt(b.getAttribute('data-i'), 10); state.mode = 'ask'; state.blockOpen = false; render();
+    stage.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  /* ---------- Dictée : ce que j'ai fait → tableau ---------- */
+  var sampleFn = null, dictPlan = null;
+  var EXTRA = { R: 'En vente', T: 'Livré' };
+  var FIELD_COLS = { U: 'Atelier / responsable', W: 'Date prévue', X: 'Blocage à signaler', Y: 'Commentaires', AA: 'Recharge batterie (date)', AB: 'Travaux carrosserie à faire' };
+  function colLabel(c) {
+    for (var k = 0; k < STEPS.length; k++) if (STEPS[k].c === c && !STEPS[k].m) return STEPS[k].q.replace(/ \?$/, '');
+    return EXTRA[c] || FIELD_COLS[c] || c;
+  }
+  function todayShort() { var d = new Date(); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(2); }
+  function stepCols() { var a = []; STEPS.forEach(function (s) { if (s.c) a.push(s.c); }); a.push('R'); return a; }
+  function vehicleByRow(r) { for (var k = 0; k < vehicles.length; k++) if (vehicles[k].row === r) return vehicles[k]; return null; }
+  function setMsg(id, kind, text) { var el = $(id); el.className = 'pmsg' + (kind ? ' ' + kind : ''); el.textContent = text || ''; }
+  function sampleErr(e) {
+    var c = e && e.code;
+    if (c === 'cancelled') return '';
+    if (c === 'not_granted' || c === 'sampling_disabled' || c === 'not_declared' || c === 'capability_disabled' || c === 'capability_removed') return "L'analyse n'est pas autorisée ici : accepte la demande de Claude, ou ouvre la page dans Claude.";
+    if (c === 'rate_limited') return 'Trop de demandes pour le moment. Réessaie dans un instant.';
+    if (c === 'session_expired') return 'Ta session Claude a expiré : reconnecte-toi puis réessaie.';
+    if (c === 'invalid_json' || c === 'empty_completion') return "Je n'ai pas réussi à lire la réponse. Reformule un peu plus simplement et réessaie.";
+    if (c === 'prompt_too_large') return 'Le texte est trop long : coupe-le en deux.';
+    return "L'analyse n'a pas abouti. Réessaie.";
+  }
+  function buildPrompt(text) {
+    var lines = vehicles.map(function (v) {
+      var done = [];
+      STEPS.forEach(function (s) { if (s.c && !s.m && isOK(cell(v, s.c))) done.push(s.c); });
+      return v.row + ' | ' + v.name + (delivered(v) ? ' (livré)' : '') + ' | colonnes déjà à Oui : ' + (done.join(',') || 'aucune');
+    }).join('\n');
+    var cols = STEPS.filter(function (s) { return s.c; }).map(function (s) { return s.c + ' : ' + (s.m ? s.t : s.q); }).join('\n') + "\nR : En vente (Oui quand l'annonce est en ligne)";
+    return "Tu aides Élouan, préparateur de véhicules d'occasion chez La Solution Automobile, à reporter dans son tableau de suivi ce qu'il raconte. Le texte vient d'une dictée vocale : il peut contenir des fautes de reconnaissance.\n\n" +
+      'Date du jour : ' + today() + ' (' + JOURS[new Date().getDay()] + ').\n\nVéhicules du tableau (ligne | nom | colonnes déjà à Oui) :\n' + lines + '\n\n' +
+      'Colonnes des étapes (lettre : étape) :\n' + cols + '\n\n' +
+      'Autres colonnes : U = Atelier / responsable, W = Date prévue (jj/mm/aaaa), X = Blocage à signaler, Y = Commentaires, AA = date de la dernière recharge de la batterie (jj/mm/aaaa), AB = travaux de carrosserie à faire (texte court).\n\n' +
+      'Règles :\n' +
+      '- Étape faite ou validée : "Oui". Étape en attente, en cours ou envoyée à l\'atelier : "En cours". Étape refusée ou explicitement pas faite : "Non". Étape qui ne concerne pas ce véhicule : "Sans objet".\n' +
+      '- Rattache chaque véhicule cité au nom le plus proche de la liste (ex. « la C1 blanche » = Citroen C1 blanche). Si deux véhicules peuvent correspondre, ne choisis pas : mets la phrase dans unclear.\n' +
+      '- Une date relative (« mardi », « demain ») devient une date jj/mm/aaaa calculée à partir de la date du jour.\n' +
+      "- N'invente rien : ne mets que ce qui est dit.\n" +
+      "- Un véhicule cité qui n'est pas dans la liste va dans new_vehicles (nom court, ex. « Renault Clio grise »).\n" +
+      "- journal : résumé très court pour le journal quotidien. vo_traites = véhicules et actions faites, relances = clients ou prospects relancés, blocage = ce qui bloque ou demande une décision, initiative = initiative du jour. Laisse vide ce qui n'est pas dit.\n\n" +
+      'Réponds uniquement avec ce JSON :\n{"updates":[{"row":6,"col":"J","value":"Oui"}],"fields":[{"row":6,"col":"X","value":"Attente pièce"}],"new_vehicles":["Renault Clio grise"],"journal":{"vo_traites":"","relances":"","blocage":"","initiative":""},"unclear":["phrase non comprise"]}\n\n' +
+      'Texte dicté :\n"""\n' + text.slice(0, 6000) + '\n"""';
+  }
+  function cleanPlan(raw) {
+    var plan = { updates: [], fields: [], newVehicles: [], journal: null, unclear: [] };
+    if (!raw || typeof raw !== 'object') return plan;
+    var okCols = stepCols(), okVals = { 'oui': 'Oui', 'non': 'Non', 'en cours': 'En cours', 'sans objet': 'Sans objet' };
+    (Array.isArray(raw.updates) ? raw.updates : []).forEach(function (u) {
+      var v = vehicleByRow(Number(u && u.row)), c = String((u && u.col) || '').toUpperCase(), val = okVals[String((u && u.value) || '').trim().toLowerCase()];
+      if (v && okCols.indexOf(c) >= 0 && val) plan.updates.push({ v: v, col: c, value: val });
+    });
+    (Array.isArray(raw.fields) ? raw.fields : []).forEach(function (f) {
+      var v = vehicleByRow(Number(f && f.row)), c = String((f && f.col) || '').toUpperCase(), val = String((f && f.value) || '').trim().slice(0, 300);
+      if (v && FIELD_COLS[c] && val) plan.fields.push({ v: v, col: c, value: val });
+    });
+    (Array.isArray(raw.new_vehicles) ? raw.new_vehicles : []).forEach(function (n) { n = String(n || '').trim().slice(0, 60); if (n) plan.newVehicles.push(n); });
+    var j = raw.journal || {};
+    var jj = { vo: String(j.vo_traites || '').trim(), rel: String(j.relances || '').trim(), blk: String(j.blocage || '').trim(), ini: String(j.initiative || '').trim() };
+    if (jj.vo || jj.rel || jj.blk || jj.ini) plan.journal = jj;
+    (Array.isArray(raw.unclear) ? raw.unclear : []).forEach(function (s) { s = String(s || '').trim(); if (s) plan.unclear.push(s); });
+    return plan;
+  }
+  function renderPlan(plan) {
+    var h = '';
+    if (!plan.updates.length && !plan.fields.length && !plan.newVehicles.length && !plan.journal) {
+      $('dict-prev').innerHTML = plan.unclear.length ? '<p class="unclear">Pas compris : ' + plan.unclear.map(esc).join(' · ') + '</p>' : '';
+      setMsg('dict-msg', 'err', "Je n'ai rien trouvé à reporter. Cite le véhicule et ce qui a été fait.");
+      return;
+    }
+    h += '<p class="prev-h">À enregistrer : décoche ce qui est faux</p><ul class="prev">';
+    plan.updates.forEach(function (u, i) {
+      var cls = u.value === 'Oui' ? 'oui' : (u.value === 'Non' || u.value === 'En cours') ? 'non' : '';
+      h += '<li><label><input type="checkbox" checked data-k="u' + i + '"><span><span class="pv-v">' + esc(u.v.name) + '</span><br><span class="pv-d">' + esc(colLabel(u.col)) + ' → <span class="val ' + cls + '">' + esc(u.value) + '</span></span></span></label></li>';
+    });
+    plan.fields.forEach(function (f, i) {
+      h += '<li><label><input type="checkbox" checked data-k="f' + i + '"><span><span class="pv-v">' + esc(f.v.name) + '</span><br><span class="pv-d">' + esc(FIELD_COLS[f.col]) + ' : ' + esc(f.value) + '</span></span></label></li>';
+    });
+    plan.newVehicles.forEach(function (n, i) {
+      h += '<li><label><input type="checkbox" checked data-k="n' + i + '"><span><span class="pv-v">Nouveau véhicule</span><br><span class="pv-d">' + esc(n) + ' (ajouté au tableau avec la date du jour)</span></span></label></li>';
+    });
+    if (plan.journal) {
+      var parts = [];
+      if (plan.journal.vo) parts.push('VO traités : ' + plan.journal.vo);
+      if (plan.journal.rel) parts.push('Relances : ' + plan.journal.rel);
+      if (plan.journal.blk) parts.push('Blocage : ' + plan.journal.blk);
+      if (plan.journal.ini) parts.push('Initiative : ' + plan.journal.ini);
+      h += '<li><label><input type="checkbox" checked data-k="j"><span><span class="pv-v">Journal du ' + todayShort() + '</span><br><span class="pv-d">' + esc(parts.join(' · ')) + '</span></span></label></li>';
+    }
+    h += '</ul>';
+    if (plan.unclear.length) h += '<p class="unclear">Pas compris, à faire à la main : ' + plan.unclear.map(esc).join(' · ') + '</p>';
+    h += '<div class="row"><button type="button" class="act" id="dict-save">Enregistrer dans le tableau</button></div>';
+    $('dict-prev').innerHTML = h;
+    setMsg('dict-msg', '', 'Vérifie la liste, puis enregistre.');
+  }
+  function checked(key) { var el = document.querySelector('#dict-prev input[data-k="' + key + '"]'); return !!(el && el.checked); }
+  function nextFreeRow() {
+    var used = {};
+    vehicles.forEach(function (v) { used[v.row] = 1; });
+    for (var r = FIRST_ROW; r <= LAST_ROW; r++) if (!used[r]) return r;
+    return 0;
+  }
+  function saveJournal(j) {
+    return mcp.callTool(SERVER, 'get_values', { spreadsheetId: SHEET_ID, range: 'JOURNAL!A4:J63' }, { cache: false }).then(function (r) {
+      var rows = payloadOf(r).values || [], t = todayShort(), at = -1, empty = -1;
+      for (var k = 0; k < 60; k++) {
+        var a = String((rows[k] && rows[k][0]) || '').trim();
+        if (a === t || a === today()) { at = k; break; }
+        if (!a && empty < 0) empty = k;
+      }
+      function join(old, add) { old = String(old || '').trim(); return add ? (old ? old + ' / ' + add : add) : old; }
+      if (at >= 0) {
+        var row = rows[at] || [];
+        return mcp.callTool(SERVER, 'update_values', { spreadsheetId: SHEET_ID, range: 'JOURNAL!D' + (at + 4) + ':I' + (at + 4), values: [[join(row[3], j.vo), join(row[4], j.rel), row[5] || '', row[6] || '', join(row[7], j.blk), join(row[8], j.ini)]] });
+      }
+      if (empty < 0) throw { code: 'journal_full' };
+      return mcp.callTool(SERVER, 'update_values', { spreadsheetId: SHEET_ID, range: 'JOURNAL!A' + (empty + 4) + ':I' + (empty + 4), values: [[t, 'Oui', '', j.vo, j.rel, '', '', j.blk, j.ini]] });
+    });
+  }
+  function saveDict() {
+    var plan = dictPlan;
+    if (!plan || !linked) return;
+    var btn = $('dict-save'); if (btn) btn.disabled = true;
+    var touched = {}, n = 0;
+    plan.updates.forEach(function (u, i) {
+      if (!checked('u' + i)) return;
+      writeCell(u.v, u.col, u.value); n++; touched[u.v.row] = u.v;
+      if (u.col === 'Q' && u.value === 'Oui') writeCell(u.v, 'R', 'Oui');
+    });
+    plan.fields.forEach(function (f, i) { if (checked('f' + i)) { writeCell(f.v, f.col, f.value); n++; } });
+    Object.keys(touched).forEach(function (r) { var v = touched[r]; writeCell(v, COL_NEXT, label(startIndex(v))); });
+    plan.newVehicles.forEach(function (name, i) {
+      if (!checked('n' + i)) return;
+      var row = nextFreeRow(); if (!row) return;
+      var v = { row: row, name: name, vals: [name, today()] };
+      vehicles.push(v); n++;
+      write('A' + row + ':B' + row, [[name, today()]]);
+      writeCell(v, COL_NEXT, label(0));
+    });
+    var wantJournal = plan.journal && checked('j');
+    if (wantJournal) n++;
+    setMsg('dict-msg', '', 'Enregistrement…');
+    render();
+    queue.then(function () { return wantJournal ? saveJournal(plan.journal) : null; }).then(function () {
+      setMsg('dict-msg', 'ok', n + (n > 1 ? ' informations enregistrées' : ' information enregistrée') + ' dans le tableau.');
+      $('dict-prev').innerHTML = ''; $('dict').value = ''; dictPlan = null;
+      return loadVehicles();
+    }, function (e) {
+      setMsg('dict-msg', 'err', e && e.code === 'journal_full' ? 'Le journal est plein (lignes 4 à 63) : le reste est enregistré.' : "Le journal n'a pas pu être enregistré, le reste l'est.");
+      if (btn) btn.disabled = false;
+    });
+  }
+  $('dict-go').addEventListener('click', function () {
+    var text = $('dict').value.trim();
+    if (!text) { setMsg('dict-msg', 'err', "Dicte ou écris d'abord ce que tu as fait."); return; }
+    if (!linked) { setMsg('dict-msg', 'err', 'Le tableau doit être lu avant : vérifie la liaison en haut de la page.'); return; }
+    if (!sampleFn) { setMsg('dict-msg', 'err', "L'analyse n'est disponible que dans Claude."); return; }
+    var btn = $('dict-go'); btn.disabled = true;
+    $('dict-prev').innerHTML = '';
+    setMsg('dict-msg', '', 'Analyse en cours…');
+    sampleFn.json(buildPrompt(text), { cache: false }).then(function (raw) {
+      dictPlan = cleanPlan(raw); renderPlan(dictPlan);
+    }, function (e) { setMsg('dict-msg', 'err', sampleErr(e)); }).then(function () { btn.disabled = false; });
+  });
+  $('dict-clear').addEventListener('click', function () { $('dict').value = ''; $('dict-prev').innerHTML = ''; dictPlan = null; setMsg('dict-msg', '', ''); });
+  $('dict-prev').addEventListener('click', function (e) { if (e.target && e.target.id === 'dict-save') saveDict(); });
+
+  /* ---------- Agenda du lendemain ---------- */
+  var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  var agenda = null;
+  function nextWorkDay() { var d = new Date(); d.setDate(d.getDate() + 1); if (d.getDay() === 0) d.setDate(d.getDate() + 1); return d; }
+  function short(i) { return label(i).replace(/ \?$/, ''); }
+  function buildAgenda(day) {
+    var d = day || nextWorkDay(), dfr = pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+    var info = vehicles.filter(function (v) { return !delivered(v); }).map(function (v) { var i = startIndex(v); return { v: v, i: i, s: STEPS[i] }; });
+    var pri = [], suivi = [], photo = [], terrain = [], prep = [], dossiers = [];
+    info.forEach(function (x) { if (cell(x.v, COL_BLOCAGE)) pri.push('Débloquer ' + x.v.name + ' : ' + cell(x.v, COL_BLOCAGE)); });
+    info.forEach(function (x) { if (x.s.o === 'p') pri.push('Voir avec le patron : ' + short(x.i).toLowerCase() + ' (' + x.v.name + ')'); });
+    info.forEach(function (x) { if (isLate(x.v) && !cell(x.v, COL_BLOCAGE)) pri.push('Faire avancer ' + x.v.name + ' (' + daysSince(cell(x.v, COL_DATE_ARR)) + ' jours en stock)'); });
+    info.forEach(function (x) {
+      var v = x.v, wip = [];
+      ['J', 'K', 'L', 'M'].forEach(function (c) { if (isNo(cell(v, c))) wip.push(colLabel(c).toLowerCase()); });
+      if (wip.length) suivi.push(v.name + ' : ' + wip.join(', ') + (isNo(cell(v, 'M')) && cell(v, COL_TRAVAUX) ? ' (' + cell(v, COL_TRAVAUX) + ')' : '') + (cell(v, COL_ATELIER) ? ' · ' + cell(v, COL_ATELIER) : '') + (cell(v, COL_DATE_PREVUE) ? ' (prévu le ' + cell(v, COL_DATE_PREVUE) + ')' : ''));
+      if (cell(v, COL_DATE_PREVUE) === dfr) terrain.push('Convoyage ' + v.name + (cell(v, COL_ATELIER) ? ' · ' + cell(v, COL_ATELIER) : ''));
+      if (x.i === 7) terrain.push('Contrôle technique : ' + v.name);
+      if (x.i === 12) photo.push('Nettoyage puis photos : ' + v.name);
+      if (x.i === 13) photo.push('Photos : ' + v.name);
+      if (x.i === 15) photo.push('Annonce à publier : ' + v.name);
+      if (x.i === 5 || x.i === 6 || x.i === 8 || x.i === 11) prep.push(short(x.i) + ' : ' + v.name);
+      if (x.i === 3 || x.i === 4) dossiers.push(short(x.i) + ' : ' + v.name);
+      if (x.s.o === 'r') dossiers.push('Secrétaire, ' + (x.s.end ? 'livraison à organiser' : short(x.i).toLowerCase()) + ' : ' + v.name);
+    });
+    if (!pri.length) pri.push('Rien d\'urgent : faire avancer la préparation');
+    return {
+      date: d,
+      title: 'Agenda du ' + JOURS[d.getDay()] + ' ' + d.getDate() + ' ' + MOIS[d.getMonth()] + ' ' + d.getFullYear(),
+      slots: [
+        { t: '09:00–09:15', m: 'Sortie des VO du showroom', s: 'Sortie des VO', d: [], k: 'fix' },
+        { t: '09:15–09:25', m: 'Point priorités : mes 3 objectifs', s: 'Priorités', d: pri.slice(0, 3), k: 'fix' },
+        { t: '09:25–10:00', m: 'Suivi VO et ateliers', s: 'Ateliers', d: suivi, k: 'suivi' },
+        { t: '10:00–11:00', m: 'Photos, annonces, préparation commerciale', s: 'Photos et annonces', d: photo, k: 'com' },
+        { t: '11:00–12:00', m: 'Prospects et relances', s: 'Relances', d: [], k: 'com' },
+        { t: '12:00–14:00', m: 'Pause déjeuner', s: 'Pause', d: [], pause: true, k: 'pause' },
+        { t: '14:00–15:30', m: 'Missions terrain et convoyages', s: 'Terrain', d: terrain, k: 'terrain' },
+        { t: '15:30–16:15', m: 'Préparation des VO', s: 'Préparation', d: prep, k: 'suivi' },
+        { t: '16:15–17:30', m: 'Prospection et relances', s: 'Prospection', d: [], k: 'com' },
+        { t: '17:30–17:50', m: 'Suivi des dossiers, préparer le lendemain', s: 'Dossiers', d: dossiers, k: 'fix' },
+        { t: '17:50–18:00', m: 'Compte rendu de fin de journée', s: 'Compte rendu', d: [], k: 'fix' }
+      ]
+    };
+  }
+  function agendaText(a) {
+    return a.title + '\n\n' + a.slots.map(function (s) { return s.t + '  ' + s.m + (s.d.length ? '\n' + s.d.map(function (x) { return '   • ' + x; }).join('\n') : ''); }).join('\n');
+  }
+  function renderAgenda(a) {
+    var h = '<p class="ag-title">' + esc(a.title) + '</p><ol class="agenda">';
+    a.slots.forEach(function (s) {
+      h += '<li' + (s.pause ? ' class="pause"' : '') + '><span class="tm">' + s.t + '</span><div><span class="ms">' + esc(s.m) + '</span>' +
+        (s.d.length ? '<ul>' + s.d.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div></li>';
+    });
+    h += '</ol><div class="row"><button type="button" class="act" id="ag-gcal">Mettre dans Google Agenda</button><button type="button" class="act alt" id="ag-save">Enregistrer dans le tableau</button><button type="button" class="act alt" id="ag-copy">Copier</button></div>';
+    $('ag-out').innerHTML = h;
+  }
+  $('ag-go').addEventListener('click', function () {
+    if (!linked) { setMsg('ag-msg', 'err', 'Le tableau doit être lu avant : vérifie la liaison en haut de la page.'); return; }
+    agenda = buildAgenda();
+    renderAgenda(agenda);
+    setMsg('ag-msg', '', 'Vérifie, puis enregistre-le dans le tableau ou copie-le.');
+  });
+  $('ag-out').addEventListener('click', function (e) {
+    var id = e.target && e.target.id;
+    if (!agenda) return;
+    if (id === 'ag-gcal') {
+      sendToCalendar(agenda, function (k, t) { setMsg('ag-msg', k, t); }, e.target);
+    } else if (id === 'ag-copy') {
+      var txt = agendaText(agenda);
+      var done = function () { setMsg('ag-msg', 'ok', 'Agenda copié : colle-le où tu veux.'); };
+      try {
+        navigator.clipboard.writeText(txt).then(done, function () { setMsg('ag-msg', 'err', 'Copie refusée ici : enregistre-le dans le tableau à la place.'); });
+      } catch (err) { setMsg('ag-msg', 'err', 'Copie refusée ici : enregistre-le dans le tableau à la place.'); }
+    } else if (id === 'ag-save') {
+      var rows = [[agenda.title + ' · préparé le ' + today(), '', ''], ['', '', ''], ['Créneau', 'Mission', 'Détail']];
+      agenda.slots.forEach(function (s) { rows.push([s.t, s.m, s.d.join('\n')]); });
+      while (rows.length < 40) rows.push(['', '', '']);
+      setMsg('ag-msg', '', 'Enregistrement…');
+      write('AGENDA!A1:C40', rows).then(function () { setMsg('ag-msg', 'ok', "Agenda enregistré dans l'onglet AGENDA du tableau."); });
+    }
+  });
+
+  /* ---------- Photos carrosserie (Google Drive) ---------- */
+  var photoMsg = { k: '', t: '' }, photoBusy = false;
+  function photoLinks(v) { return cell(v, COL_PHOTOS).split(/\s+/).filter(function (x) { return /^https?:\/\//.test(x); }); }
+  function photoBlock(v) {
+    var links = photoLinks(v);
+    return '<div class="photos"><div class="ph-head"><span class="ph-t">Photos carrosserie</span>' + (links.length ? '<span class="who">' + links.length + ' photo' + (links.length > 1 ? 's' : '') + ' dans le Drive</span>' : '') + '</div>' +
+      (links.length ? '<div class="ph-links">' + links.map(function (u, i) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">Photo ' + (i + 1) + '</a>'; }).join('') + '</div>' : '<p class="sub">Aucune photo pour l\'instant.</p>') +
+      '<input id="phin" class="vh" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true">' +
+      '<button type="button" class="ph-add" data-act="addphotos"' + (photoBusy ? ' disabled' : '') + '>+ Ajouter des photos</button>' +
+      '<p class="pmsg' + (photoMsg.k ? ' ' + photoMsg.k : '') + '" role="status">' + esc(photoMsg.t) + '</p></div>';
+  }
+  function setPhotoMsg(k, t) { photoMsg = { k: k, t: t }; renderStage(); }
+  function shrinkImage(file, max, q) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { if (b) res(b); else rej(new Error('blob')); }, 'image/jpeg', q);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('image')); };
+      img.src = url;
+    });
+  }
+  function toBase64(blob) {
+    return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1] || ''); }; r.onerror = rej; r.readAsDataURL(blob); });
+  }
+  function driveErr(e) {
+    var c = (e && e.code) || '';
+    if (c === 'server_not_connected') return "Google Drive n'est pas connecté pour toi : ajoute-le dans claude.ai › Réglages › Connecteurs.";
+    if (c === 'needs_reauth') return 'Ta connexion Google Drive a expiré : reconnecte-la dans claude.ai › Réglages › Connecteurs.';
+    if (c === 'not_in_manifest' || c === 'approval_required' || c === 'consent_required') return "La page n'a pas encore l'autorisation d'utiliser Google Drive. Accepte la demande, puis réessaie.";
+    if (c === 'image') return "Cette photo n'a pas pu être lue. Essaie avec une autre.";
+    return "L'envoi vers Google Drive n'a pas abouti. Réessaie." + (c ? ' (' + c + ')' : '');
+  }
+  function uploadPhotos(v, files) {
+    if (!v || !files.length || !mcp) return;
+    photoBusy = true;
+    var added = [], d = new Date(), stamp = pad(d.getDate()) + '-' + pad(d.getMonth() + 1) + '-' + d.getFullYear();
+    var start = photoLinks(v).length, fileArgs = false;
+    var chain = mcp.listTools().then(function (r) { fileArgs = !!(r && r.fileArgs); }, function () {});
+    Array.prototype.forEach.call(files, function (f, i) {
+      chain = chain.then(function () {
+        setPhotoMsg('', 'Envoi de la photo ' + (i + 1) + ' sur ' + files.length + '…');
+        return shrinkImage(f, 1600, 0.82).catch(function () { throw { code: 'image' }; });
+      }).then(function (blob) {
+        if (fileArgs || blob.size <= 700000) return blob;
+        return shrinkImage(blob, 1100, 0.7);
+      }).then(function (blob) {
+        var title = v.name + ' – carrosserie – ' + stamp + ' – ' + (start + added.length + 1) + '.jpg';
+        var contentP = fileArgs ? Promise.resolve({ $file: { data: blob, name: 'photo.jpg', type: 'image/jpeg' } }) : toBase64(blob);
+        return contentP.then(function (content) {
+          return mcp.callTool(DRIVE, 'create_file', { title: title, parentId: PHOTO_FOLDER, base64Content: content, contentMimeType: 'image/jpeg', disableConversionToGoogleType: true });
+        });
+      }).then(function (r) {
+        var p = payloadOf(r);
+        added.push(p.viewUrl || p.webViewLink || (p.id ? 'https://drive.google.com/file/d/' + p.id + '/view' : ''));
+      });
+    });
+    chain.then(function () {
+      var all = photoLinks(v).concat(added.filter(Boolean));
+      return writeCell(v, COL_PHOTOS, all.join('\n')).then(function () {
+        photoBusy = false;
+        setPhotoMsg('ok', added.length + ' photo' + (added.length > 1 ? 's ajoutées' : ' ajoutée') + ' dans le Drive et dans le tableau.');
+      });
+    }, function (e) {
+      photoBusy = false;
+      if (added.length) writeCell(v, COL_PHOTOS, photoLinks(v).concat(added.filter(Boolean)).join('\n'));
+      setPhotoMsg('err', (added.length ? added.length + ' photo(s) envoyée(s), puis : ' : '') + driveErr(e));
+    });
+  }
+  stage.addEventListener('change', function (e) {
+    if (!e.target || e.target.id !== 'phin') return;
+    var files = Array.prototype.slice.call(e.target.files || []);
+    if (files.length) uploadPhotos(current(), files);
+  });
+
+  /* ---------- Journal du jour (hors véhicules) ---------- */
+  var JR_COLS = { D: 'VO traités', E: 'Relances utiles', F: 'Nouveaux contacts', G: 'Prospects avec suite', H: 'Blocage / décision', I: 'Initiatives · réseaux' };
+  var journal = { row: 0, vals: [], empty: 0, loaded: false };
+  function jrMsg(kind, text) { var el = $('jr-msg'); el.className = 'pmsg' + (kind ? ' ' + kind : ''); el.textContent = text || ''; }
+  function loadJournal() {
+    if (!mcp || !linked) return Promise.resolve();
+    return mcp.callTool(SERVER, 'get_values', { spreadsheetId: SHEET_ID, range: 'JOURNAL!A4:J63' }, { cache: false }).then(function (r) {
+      var rows = payloadOf(r).values || [], t = todayShort();
+      journal = { row: 0, vals: [], empty: 0, loaded: true };
+      for (var k = 0; k < 60; k++) {
+        var a = String((rows[k] && rows[k][0]) || '').trim();
+        if (a === t || a === today()) { journal.row = k + 4; journal.vals = (rows[k] || []).slice(); break; }
+        if (!a && !journal.empty) journal.empty = k + 4;
+      }
+      renderJournal();
+    }, function () { $('jr-view').innerHTML = '<p class="hint">Le journal n\'a pas pu être lu. Utilise « Actualiser » en haut.</p>'; });
+  }
+  function renderJournal() {
+    var h = '<p class="jr-day">Aujourd\'hui, ' + todayShort() + '</p>', any = false;
+    h += '<ul class="jr-list">';
+    ['D', 'E', 'F', 'G', 'H', 'I'].forEach(function (c) {
+      var txt = String(journal.vals[colIdx(c)] || '').trim();
+      if (!txt) return;
+      any = true;
+      var parts = txt.split(/\s*\/\s*/).filter(Boolean);
+      h += '<li><span class="jl">' + esc(JR_COLS[c]) + '</span><div class="todo-chips">' + parts.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div></li>';
+    });
+    h += '</ul>';
+    if (!any) h = '<p class="jr-day">Aujourd\'hui, ' + todayShort() + '</p><p class="hint">Rien de noté pour l\'instant.</p>';
+    $('jr-view').innerHTML = h;
+  }
+  function jrAppend(c, txt) {
+    return loadJournal().then(function () {
+      var row = journal.row, p = Promise.resolve();
+      if (!row) {
+        row = journal.empty;
+        if (!row) throw { code: 'journal_full' };
+        p = mcp.callTool(SERVER, 'update_values', { spreadsheetId: SHEET_ID, range: 'JOURNAL!A' + row + ':B' + row, values: [[todayShort(), 'Oui']] });
+      }
+      var old = row === journal.row ? String(journal.vals[colIdx(c)] || '').trim() : '';
+      if (old.split(/\s*\/\s*/).indexOf(txt) >= 0) return p;
+      var val = old ? old + ' / ' + txt : txt;
+      return p.then(function () { return mcp.callTool(SERVER, 'update_values', { spreadsheetId: SHEET_ID, range: 'JOURNAL!' + c + row, values: [[val]] }); });
+    }).then(function () { return loadJournal(); });
+  }
+  $('jr-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var txt = $('jr-txt').value.trim(), c = $('jr-cat').value;
+    if (!txt) { jrMsg('err', 'Écris d\'abord ce que tu as fait.'); return; }
+    if (!linked || !mcp) { jrMsg('err', "Le tableau n'est pas relié : impossible d'écrire dans le journal."); return; }
+    var btn = $('jr-add'); btn.disabled = true;
+    jrMsg('', 'Ajout au journal…');
+    jrAppend(c, txt).then(function () {
+      $('jr-txt').value = '';
+      jrMsg('ok', 'Ajouté au journal (' + JR_COLS[c] + ').');
+    }, function (err) {
+      jrMsg('err', err && err.code === 'journal_full' ? 'Le journal est plein (lignes 4 à 63).' : "L'ajout n'a pas été enregistré. Réessaie.");
+    }).then(function () { btn.disabled = false; });
+  });
+  /* ---------- Posts réseaux par véhicule ---------- */
+  var POSTS = [
+    { c: 'AC', l: 'Arrivage', due: function () { return true; } },
+    { c: 'AD', l: 'En vente', due: function (v) { return isOK(cell(v, 'Q')) || isOK(cell(v, 'R')); } },
+    { c: 'AE', l: 'Vendu', due: function (v) { return isOK(cell(v, 'S')) || isOK(cell(v, 'T')); } }
+  ];
+  var poTab = 'todo', poKeep = {}, poFlash = 0, poUndo = null;
+  function postState(v, p) {
+    var x = cell(v, p.c);
+    if (isOK(x) && /^oui$/i.test(x)) return 'done';
+    if (/^sans objet$/i.test(x)) return 'na';
+    return p.due(v) ? 'todo-now' : 'later';
+  }
+  function postsToDo(v) { return POSTS.filter(function (p) { return postState(v, p) === 'todo-now'; }).length; }
+  function renderPosts() {
+    var tabs = $('po-tabs'), grid = $('po-list'), note = $('po-note');
+    if (!linked) { tabs.innerHTML = ''; grid.innerHTML = ''; note.textContent = 'Les posts apparaissent dès que le tableau est lu.'; return; }
+    var todo = vehicles.filter(function (v) { return postsToDo(v) > 0; });
+    var nTodo = todo.reduce(function (n, v) { return n + postsToDo(v); }, 0);
+    tabs.innerHTML = '<button type="button" role="tab" class="tab" data-po="todo" aria-selected="' + (poTab === 'todo') + '">À poster <span class="n">' + nTodo + '</span></button>' +
+      '<button type="button" role="tab" class="tab" data-po="all" aria-selected="' + (poTab === 'all') + '">Tous les véhicules <span class="n">' + vehicles.length + '</span></button>';
+    $('vs-posts').textContent = nTodo ? nTodo + ' post' + (nTodo > 1 ? 's' : '') + ' à faire' : 'Tout est posté';
+    var shown = poTab === 'todo' ? vehicles.filter(function (v) { return postsToDo(v) > 0 || poKeep[v.row]; }) : vehicles.slice();
+    var stLabel = { 'done': 'Posté', 'na': 'Sans objet', 'todo-now': 'À poster', 'later': 'Pas encore' };
+    grid.innerHTML = shown.map(function (v) {
+      return '<div class="prow' + (v.row === poFlash ? ' flash' : '') + '"><span class="pn">' + esc(v.name) + '</span>' + POSTS.map(function (p) {
+        var st = postState(v, p);
+        return '<button type="button" class="pbtn ' + st + '" data-row="' + v.row + '" data-col="' + p.c + '" aria-label="Post ' + p.l + ' : ' + stLabel[st] + '">' +
+          '<span class="pl">Post ' + p.l.toLowerCase() + '</span><span class="st">' + (st === 'done' ? CHECK : '') + stLabel[st] + '</span></button>';
+      }).join('') + '</div>';
+    }).join('');
+    note.textContent = shown.length ? '' : (poTab === 'todo' ? 'Tous les posts sont à jour.' : 'Aucun véhicule.');
+  }
+  $('po-tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-po]');
+    if (!b) return;
+    poTab = b.getAttribute('data-po'); poKeep = {}; poFlash = 0; renderPosts();
+  });
+  function poMessage(text, undo) {
+    var el = $('po-msg');
+    el.className = 'pmsg ok';
+    el.innerHTML = '<span>' + esc(text) + '</span>' + (undo ? '<button type="button" id="po-undo">Annuler</button>' : '');
+  }
+  function setPost(v, c, value, withJournal) {
+    var p = POSTS.filter(function (x) { return x.c === c; })[0];
+    var before = cell(v, c);
+    writeCell(v, c, value);
+    if (withJournal && value === 'Oui') jrAppend('I', 'Post ' + p.l.toLowerCase() + ' ' + v.name).catch(function () {});
+    poKeep[v.row] = 1; poFlash = v.row;
+    poUndo = { v: v, c: c, value: before };
+    poMessage('Post ' + p.l.toLowerCase() + ' · ' + v.name + (value === 'Oui' ? ' : marqué comme posté.' : ' : remis à poster.'), true);
+    renderPosts(); renderOverview();
+  }
+  $('po-list').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-col]');
+    if (!b || !linked) return;
+    var v = vehicleByRow(parseInt(b.getAttribute('data-row'), 10)), c = b.getAttribute('data-col');
+    if (!v) return;
+    var p = POSTS.filter(function (x) { return x.c === c; })[0];
+    setPost(v, c, postState(v, p) === 'done' ? '' : 'Oui', true);
+  });
+  $('po-msg').addEventListener('click', function (e) {
+    if (!e.target || e.target.id !== 'po-undo' || !poUndo) return;
+    var u = poUndo; poUndo = null;
+    setPost(u.v, u.c, u.value, false);
+    poMessage('Annulé.', false);
+  });
+
+  /* ---------- Envoi vers Google Agenda ---------- */
+  var GCAL = 'Google Calendar', TAG = '[Arbre VO]';
+  var GCOLOR = { fix: '9', suivi: '3', com: '7', terrain: '6' };
+  function isoDay(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function eventsOf(p) { return (p && (p.events || p.items)) || []; }
+  function calErr(e) {
+    var c = (e && e.code) || '';
+    if (c === 'server_not_connected') return "Google Agenda n'est pas connecté pour toi : ajoute-le dans claude.ai › Réglages › Connecteurs.";
+    if (c === 'needs_reauth') return 'Ta connexion Google Agenda a expiré : reconnecte-la dans claude.ai › Réglages › Connecteurs.';
+    if (c === 'not_in_manifest' || c === 'approval_required' || c === 'consent_required') return "La page n'a pas encore l'autorisation d'utiliser Google Agenda. Accepte la demande, puis réessaie.";
+    if (c === 'not_granted' || c === 'capability_disabled' || c === 'capability_removed') return "L'envoi vers Google Agenda n'est possible que dans Claude.";
+    if (c === 'tool_error') return 'Google Agenda a refusé la demande. Réessaie. (' + c + ')';
+    return "Pas de réponse de Google Agenda : vérifie l'agenda, une partie a peut-être été ajoutée, puis réessaie." + (c ? ' (' + c + ')' : '');
+  }
+  var calCache = {};
+  function evMin(x) { var s = (x && (x.dateTime || x.date)) || ''; var m = /T(\d\d):(\d\d)/.exec(s); return m ? +m[1] * 60 + +m[2] : null; }
+  function personalEvents(evs) {
+    return evs.filter(function (ev) { return String(ev.description || '').indexOf(TAG) < 0 && ev.status !== 'cancelled'; }).map(function (ev) {
+      var s = evMin(ev.start), e = evMin(ev.end);
+      return { title: ev.summary || 'Rendez-vous', s: s, e: e == null ? s : e, allDay: s == null };
+    }).sort(function (a, b) { return (a.s == null ? -1 : a.s) - (b.s == null ? -1 : b.s); });
+  }
+  function loadCal(day, force) {
+    if (!mcp) return;
+    var iso = isoDay(day), c = calCache[iso];
+    if (c && !force && (c.loading || Date.now() - c.at < 300000)) return;
+    calCache[iso] = { events: c ? c.events : [], at: Date.now(), loading: true };
+    mcp.callTool(GCAL, 'list_events', { startTime: iso + 'T00:00:00', endTime: iso + 'T23:59:00', pageSize: 50, orderBy: 'startTime' }, { cache: false })
+      .then(function (r) { calCache[iso] = { events: personalEvents(eventsOf(payloadOf(r))), at: Date.now() }; renderMini(); },
+        function (e) { calCache[iso] = { events: [], at: Date.now(), err: (e && e.code) || 'upstream_error' }; renderMini(); });
+  }
+  function coveredBy(slot, evs) {
+    var a = hm(slot.t), b = endOf(slot.t);
+    return evs.some(function (ev) { return !ev.allDay && ev.s <= a && ev.e >= b; });
+  }
+  function minLabel(x) { var h = Math.floor(x / 60), m = x % 60; return h + 'h' + (m ? pad(m) : ''); }
+  function sendToCalendar(a, report, btn) {
+    if (!a) return;
+    if (!mcp) { report('err', "L'envoi vers Google Agenda n'est possible que dans Claude."); return; }
+    var day = isoDay(a.date), slots = [], skipped = 0;
+    if (btn) btn.disabled = true;
+    report('', 'Envoi vers Google Agenda…');
+    mcp.callTool(GCAL, 'list_events', { startTime: day + 'T00:00:00', endTime: day + 'T23:59:00', pageSize: 100, orderBy: 'startTime' }, { cache: false })
+      .then(function (r) {
+        var all = eventsOf(payloadOf(r)), mine = personalEvents(all);
+        a.slots.forEach(function (s) { if (s.pause) return; if (coveredBy(s, mine)) skipped++; else slots.push(s); });
+        var old = all.filter(function (ev) { return String(ev.description || '').indexOf(TAG) >= 0 && (ev.id || ev.eventId); });
+        return old.reduce(function (p, ev) {
+          return p.then(function () { return mcp.callTool(GCAL, 'delete_event', { eventId: ev.id || ev.eventId, notificationLevel: 'NONE' }); });
+        }, Promise.resolve()).then(function () { return old.length; });
+      })
+      .then(function (removed) {
+        return slots.reduce(function (p, s) {
+          return p.then(function () {
+            var t = s.t.split('–');
+            return mcp.callTool(GCAL, 'create_event', {
+              summary: 'VO · ' + s.m,
+              startTime: day + 'T' + t[0] + ':00',
+              endTime: day + 'T' + t[1] + ':00',
+              description: (s.d.length ? s.d.map(function (x) { return '• ' + x; }).join('\n') : 'Rien de précis noté.') + '\n\n' + TAG,
+              colorId: GCOLOR[s.k] || '9',
+              useDefaultReminders: false,
+              overrideReminders: s.d.length ? [{ method: 'popup', minutes: 0 }] : [],
+              notificationLevel: 'NONE'
+            });
+          });
+        }, Promise.resolve()).then(function () { return removed; });
+      })
+      .then(function (removed) {
+        delete calCache[day];
+        report('ok', slots.length + ' créneaux ajoutés dans Google Agenda pour le ' + JOURS[a.date.getDay()] + ' ' + a.date.getDate() + ' ' + MOIS[a.date.getMonth()] +
+          (skipped ? ', ' + skipped + ' laissés de côté car tu as déjà un rendez-vous' : '') + (removed ? ". L'ancienne version a été remplacée" : '') + '.');
+      }, function (e) { report('err', calErr(e)); })
+      .then(function () { if (btn) btn.disabled = false; });
+  }
+
+  /* ---------- Mini agenda ---------- */
+  var miniMode = null, miniAgenda = null, miniMsg = { k: '', t: '' }, miniBusy = false;
+  function hm(t) { var m = /(\d\d):(\d\d)/.exec(t); return +m[1] * 60 + +m[2]; }
+  function endOf(t) { return hm(t.split('–')[1]); }
+  function hLabel(t) { var x = hm(t), h = Math.floor(x / 60), m = x % 60; return h + 'h' + (m ? pad(m) : ''); }
+  function chipsOf(s, max) {
+    if (!s.d.length) return '';
+    var h = s.d.slice(0, max).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+    if (s.d.length > max) h += '<span class="more">+' + (s.d.length - max) + ' autre' + (s.d.length - max > 1 ? 's' : '') + '</span>';
+    return '<div class="todo-chips">' + h + '</div>';
+  }
+  function renderMini() {
+    var el = $('mini');
+    if (!linked) {
+      el.innerHTML = '<div class="mini-head"><div><h2 id="mini-t">Ma journée</h2></div></div><p class="mini-empty">Le mini agenda apparaît dès que le tableau est lu.</p>';
+      return;
+    }
+    var now = new Date(), mins = now.getHours() * 60 + now.getMinutes(), sunday = now.getDay() === 0;
+    var mode = miniMode || ((mins >= 18 * 60 || sunday) ? 'tomorrow' : 'today');
+    var day = mode === 'today' ? new Date() : nextWorkDay();
+    var a = buildAgenda(day), live = mode === 'today' && !sunday;
+    miniAgenda = a;
+    loadCal(day, false);
+    var cal = calCache[isoDay(day)] || { events: [] };
+    var evs = cal.events || [], timed = evs.filter(function (ev) { return !ev.allDay; });
+    var cov = a.slots.map(function (s) { return !s.pause && coveredBy(s, timed); });
+    var cur = -1, nxt = -1, curEv = null, nxtEv = null;
+    a.slots.forEach(function (s, i) {
+      if (cov[i]) return;
+      if (live && mins >= hm(s.t) && mins < endOf(s.t)) cur = i;
+      if (live && nxt < 0 && hm(s.t) > mins) nxt = i;
+    });
+    timed.forEach(function (ev) {
+      if (live && mins >= ev.s && mins < ev.e) curEv = ev;
+      if (live && !nxtEv && ev.s > mins) nxtEv = ev;
+    });
+    if (curEv) cur = -1;
+    var nextIsEv = !!nxtEv && (nxt < 0 || nxtEv.s <= hm(a.slots[nxt].t));
+    var dayLabel = (mode === 'today' ? "Aujourd'hui · " : 'Demain · ') + JOURS[day.getDay()] + ' ' + day.getDate() + ' ' + MOIS[day.getMonth()];
+    var h = '<div class="mini-head"><div><h2 id="mini-t">Ma journée</h2><span class="day">' + dayLabel + '</span></div>' +
+      '<div class="seg" role="group" aria-label="Jour affiché"><button type="button" data-day="today" aria-pressed="' + (mode === 'today') + '">Aujourd\'hui</button><button type="button" data-day="tomorrow" aria-pressed="' + (mode === 'tomorrow') + '">Demain</button></div></div>';
+
+    h += '<div class="now">';
+    if (live && curEv) {
+      var lft = curEv.e - mins;
+      h += '<div class="nowcard main k-rdv"><span class="lab">Maintenant · rendez-vous</span><span class="tt">' + esc(curEv.title) + '</span><span class="tm">' + minLabel(curEv.s) + ' – ' + minLabel(curEv.e) + '</span>' +
+        '<span class="left">Encore ' + (lft >= 60 ? Math.floor(lft / 60) + ' h ' + pad(lft % 60) : lft + ' min') + '</span></div>';
+    } else if (live && cur >= 0) {
+      var s = a.slots[cur], left = endOf(s.t) - mins;
+      h += '<div class="nowcard main k-' + s.k + '"><span class="lab">Maintenant</span><span class="tt">' + esc(s.m) + '</span><span class="tm">' + s.t + '</span>' + chipsOf(s, 4) +
+        '<span class="left">Encore ' + (left >= 60 ? Math.floor(left / 60) + ' h ' + pad(left % 60) : left + ' min') + '</span></div>';
+    } else if (live && mins < 9 * 60) {
+      h += '<div class="nowcard main k-fix"><span class="lab">Avant 9 h</span><span class="tt">La journée commence à 9 h</span><span class="tm">Sortie des VO du showroom, puis point priorités</span>' + chipsOf(a.slots[1], 3) + '</div>';
+    } else if (live) {
+      h += '<div class="nowcard main k-fix"><span class="lab">Journée terminée</span><span class="tt">Compte rendu envoyé ? Pense à préparer demain.</span></div>';
+    } else {
+      if (evs.length) {
+        h += '<div class="nowcard main k-rdv"><span class="lab">Mes rendez-vous</span><span class="tt">' + evs.length + ' rendez-vous prévu' + (evs.length > 1 ? 's' : '') + '</span><div class="todo-chips">' +
+          evs.map(function (ev) { return '<span>' + (ev.allDay ? 'Journée' : minLabel(ev.s)) + ' · ' + esc(ev.title) + '</span>'; }).join('') + '</div></div>';
+      }
+      h += '<div class="nowcard' + (evs.length ? '' : ' main') + ' k-fix"><span class="lab">En arrivant · 9h15</span><span class="tt">Mes 3 priorités</span>' + chipsOf(a.slots[1], 3) + '</div>';
+    }
+    if (live && nextIsEv) {
+      h += '<div class="nowcard k-rdv"><span class="lab">Ensuite · ' + minLabel(nxtEv.s) + ' · rendez-vous</span><span class="tt">' + esc(nxtEv.title) + '</span><span class="tm">' + minLabel(nxtEv.s) + ' – ' + minLabel(nxtEv.e) + '</span></div>';
+    } else if (live && nxt >= 0) {
+      var n = a.slots[nxt];
+      h += '<div class="nowcard k-' + n.k + '"><span class="lab">Ensuite · ' + hLabel(n.t) + '</span><span class="tt">' + esc(n.m) + '</span>' + (chipsOf(n, 3) || '<span class="tm">Rien de précis noté</span>') + '</div>';
+    } else {
+      var counts = [];
+      function add(i, one, many) { var c = a.slots[i].d.length; if (c) counts.push(c + ' ' + (c > 1 ? many : one)); }
+      add(2, 'suivi atelier', 'suivis atelier'); add(3, 'photo ou annonce', 'photos ou annonces'); add(6, 'mission terrain', 'missions terrain'); add(7, 'préparation', 'préparations'); add(9, 'dossier', 'dossiers');
+      h += '<div class="nowcard"><span class="lab">Au programme</span><span class="tt">' + (counts.length ? counts.length + ' types de tâches' : 'Journée calme') + '</span>' +
+        (counts.length ? '<div class="todo-chips">' + counts.map(function (c) { return '<span>' + esc(c) + '</span>'; }).join('') + '</div>' : '<span class="tm">Avance la prospection et les relances.</span>') + '</div>';
+    }
+    h += '</div>';
+
+    h += '<div class="strip-wrap">';
+    if (timed.length) {
+      h += '<div class="strip-rdv k-rdv" aria-hidden="true">';
+      timed.forEach(function (ev) {
+        var s0 = Math.max(540, ev.s), e0 = Math.min(1080, ev.e);
+        if (e0 > s0) h += '<span title="' + esc(minLabel(ev.s) + ' ' + ev.title) + '" style="left:' + ((s0 - 540) / 540 * 100).toFixed(2) + '%;width:' + ((e0 - s0) / 540 * 100).toFixed(2) + '%"></span>';
+      });
+      h += '</div>';
+    }
+    h += '<div class="strip" aria-hidden="true">';
+    a.slots.forEach(function (s, i) {
+      var dur = endOf(s.t) - hm(s.t);
+      var cls = 'blk k-' + s.k + (live && endOf(s.t) <= mins ? ' past' : '') + (i === cur ? ' cur' : '') + (cov[i] ? ' cov' : '');
+      h += '<span class="' + cls + '" style="flex:' + dur + ' 1 0" title="' + esc(s.t + ' ' + s.m) + '">' + (s.d.length && dur >= 30 ? s.d.length : '') + '</span>';
+    });
+    if (live && mins >= 540 && mins < 1080) h += '<span class="nowline" style="left:' + ((mins - 540) / 540 * 100).toFixed(2) + '%"></span>';
+    h += '</div><div class="strip-scale"><span>9 h</span><span>Pause 12 h – 14 h</span><span>18 h</span></div></div>';
+
+    var rows = [];
+    evs.forEach(function (ev) {
+      var past = live && !ev.allDay && ev.e <= mins;
+      rows.push({ at: ev.allDay ? -1 : ev.s, o: 0, html: '<li class="k-rdv' + (past ? ' past' : '') + (ev === curEv ? ' cur' : '') + '"><span class="dot"></span><span class="h">' + (ev.allDay ? 'Jour' : minLabel(ev.s)) + '</span><span class="w"><b>RDV</b><span> · ' + esc(ev.title) + '</span></span></li>' });
+    });
+    a.slots.forEach(function (s, i) {
+      if (s.pause) return;
+      var past = live && endOf(s.t) <= mins;
+      var sum = cov[i] ? '<span> · remplacé par un rendez-vous</span>' : s.d.length ? '<span> · ' + esc(s.d[0]) + (s.d.length > 1 ? ' +' + (s.d.length - 1) : '') + '</span>' : '';
+      rows.push({ at: hm(s.t), o: 1, html: '<li class="k-' + s.k + (past ? ' past' : '') + (cov[i] ? ' cov' : '') + (i === cur ? ' cur' : '') + '"><span class="dot"></span><span class="h">' + hLabel(s.t) + '</span><span class="w"><b>' + esc(s.s) + '</b>' + sum + '</span></li>' });
+    });
+    rows.sort(function (x, y) { return x.at - y.at || x.o - y.o; });
+    h += '<ol class="mini-list">' + rows.map(function (r) { return r.html; }).join('') + '</ol>';
+    if (cal.err) h += '<p class="mini-note err">Rendez-vous Google non lus : ' + esc(calErr({ code: cal.err })) + '</p>';
+    else if (cal.loading && !evs.length) h += '<p class="mini-note">Lecture de ton Google Agenda…</p>';
+    h += '<div class="mini-actions"><button type="button" class="act alt" id="mini-gcal"' + (miniBusy ? ' disabled' : '') + '>Mettre ' + (mode === 'today' ? "aujourd'hui" : 'demain') + ' dans Google Agenda</button>' +
+      '<p class="pmsg' + (miniMsg.k ? ' ' + miniMsg.k : '') + '" role="status">' + esc(miniMsg.t) + '</p></div>';
+    el.innerHTML = h;
+  }
+  $('mini').addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'mini-gcal') {
+      if (miniBusy) return;
+      miniBusy = true; miniMsg = { k: '', t: 'Envoi vers Google Agenda…' }; renderMini();
+      sendToCalendar(miniAgenda, function (k, t) {
+        miniMsg = { k: k, t: t };
+        if (k) miniBusy = false;
+        renderMini();
+      }, null);
+      return;
+    }
+    var b = e.target.closest('button[data-day]');
+    if (!b) return;
+    miniMode = b.getAttribute('data-day'); miniMsg = { k: '', t: '' }; renderMini();
+  });
+  setInterval(function () { if (!document.hidden) renderMini(); }, 60000);
+
+  /* ---------- Onglets de la page ---------- */
+  var VIEW_KEY = 'arbre-prepa-view';
+  var navEl = document.querySelector('.views');
+  function showView(name) {
+    Array.prototype.forEach.call(document.querySelectorAll('.view'), function (s) { s.hidden = s.getAttribute('data-view') !== name; });
+    Array.prototype.forEach.call(navEl.querySelectorAll('button[data-view]'), function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-view') === name)); });
+    try { localStorage.setItem(VIEW_KEY, name); } catch (e) {}
+  }
+  navEl.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-view]');
+    if (!b) return;
+    showView(b.getAttribute('data-view'));
+    var top = navEl.getBoundingClientRect().top + window.scrollY - 8;
+    if (window.scrollY > top) window.scrollTo({ top: top });
+  });
+  var startView = 'jour';
+  try { var sv = localStorage.getItem(VIEW_KEY); if (/^(jour|vehicules|posts)$/.test(sv || '')) startView = sv; } catch (e) {}
+  showView(startView);
+
+  render();
+
+  /* ---------- Connexion au tableau ---------- */
+  if (window.claude && window.claude.use) Promise.resolve(window.claude.use('sample')).then(function (s) { sampleFn = s; }, function () {});
+  var use = window.claude && window.claude.use ? window.claude.use('mcp') : Promise.resolve(null);
+  Promise.resolve(use).then(function (ns) {
+    mcp = ns;
+    if (!mcp) {
+      setSync('err', "Liaison avec le tableau indisponible ici : l'arbre marche, mais rien n'est enregistré.");
+      sel.innerHTML = '<option value="">Tableau non relié</option>';
+      return;
+    }
+    loadVehicles();
+  }, function () {
+    setSync('err', "Liaison avec le tableau indisponible ici : l'arbre marche, mais rien n'est enregistré.");
+  });
+})();
+</script>
+
+</body>
+</html>
